@@ -1,34 +1,20 @@
+require('dotenv').config();
 const express = require('express');
 const app = express();
-require('dotenv').config();
+
 const port = process.env.PORT || 8000;
 
-const path = require('path');
+const productRoute = require('./routes/products')
+const chartRoute = require('./routes/charts')
+const userRoute = require('./routes/users')
+const orderRoute = require('./routes/orders')
 
-let items = [
-    { "id": 1, "name": "Keyboard"},
-    { "id": 2, "name": "System Unit"},
-    { "id": 3, "name": "Mouse"},
-    { "id": 4, "name": "Monitor"}
-];
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
-app.get('/api/items/:id', (req, res) => {
-    const id = parseInt(req.params.id)
-    const filtered = items.filter(item => item.id === id)
+// Routes
+app.use('/api/v1/product', productRoute);
 
-    res.json(filtered)
-
-
-});
-
-// app.use(express.static(path.join(__dirname, 'public')));
-
-// app.get('/', (req, res) => {
-//     res.sendFile(path.join(__dirname, 'public', 'index.html'))
-// });
-
-// app.get('/about', (req, res) => {
-//     res.sendFile(path.join(__dirname, 'public', 'about.html'))
-// });
 
 app.listen(port, () => console.log(`Server running on port ${port}`));
