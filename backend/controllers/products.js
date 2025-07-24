@@ -45,14 +45,52 @@ exports.fetchOneProduct = (req, res) => {
             return res.status(404).json({ msg: `ID: ${id} not found.` });
         }
 
-        res.status(200).json({msg: `Product No. ${id} fetched.`})
+        res.status(200).json({msg: `Product No. ${oneProduct.id} fetched.`})
     }
     )}
 
 exports.deleteProduct = (req, res) => {
+    const id = parseInt(req.params.id);
+    const fetchSQL = `SELECT * FROM products WHERE id = ${id}`;
+    db.query(fetchSQL, (err, values) => {
+        if (err) {
+            return console.error('Error: ', err);
+        };
 
+        const oneProduct = values.find(product => product.id === id)
+
+        if (!oneProduct) {
+            return res.status(404).json({ msg: `ID: ${id} not found.` });
+        }
+
+        const deleteSQL = `DELETE FROM products WHERE id = ${id}`;
+
+        db.query(deleteSQL, (err, success) => {
+            if (err) {
+                return console.error('Error: ', err);
+            }
+            return res.json({ msg: 'Product successfully deleted.' });
+        });
+    }
+    )
 }
 
 exports.updateProductDetails = (req, res) => {
+ const { name, description, price,  } = req.body;
+        
+        if (!name || !price) {
+            return res.status(400).json({ msg: 'Name and Price are required.' });
+        }
+    
+        const sql = 'INSERT INTO products (name, price, description, created_at) VALUES (?, ?, ?)';
+        
+        db.query(sql, (err, result) => {
+            if (err) {
+                console.error(err);
+                return res.status(500).json({ msg: 'Internal Server Error', err });
+            }
 
-}
+            return res.status(201).json({ msg: 'Product created successfully!', id: result.insertId })
+        })
+    
+    }

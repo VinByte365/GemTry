@@ -1,0 +1,158 @@
+:root {
+            --sidebar-width: 250px;
+            --primary-color: #5E2217;
+            --primary-hover: #4a1a12;
+            --light-color: #FCF8D6;
+            --light-hover: #f5f0c8;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fc;
+            overflow-x: hidden;
+        }
+        
+        #sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            background: linear-gradient(180deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+            color: var(--light-color);
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+        
+        #sidebar .sidebar-header h4{
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.1);
+            color: rgba(252, 248, 214, 0.8);
+            
+        }
+        
+        #sidebar ul.components {
+            padding: 20px 0;
+        }
+        
+        #sidebar ul li a {
+            padding: 12px 20px;
+            color: rgba(252, 248, 214, 0.8);
+            display: block;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        
+        #sidebar ul li a:hover {
+            color: var(--light-color);
+            background: rgba(0, 0, 0, 0.1);
+        }
+        
+        #sidebar ul li a i {
+            margin-right: 10px;
+        }
+        
+        #sidebar ul li.active a {
+            color: var(--light-color);
+            background: rgba(0, 0, 0, 0.2);
+        }
+        
+        #content {
+            width: calc(100% - var(--sidebar-width));
+            margin-left: var(--sidebar-width);
+            padding: 20px;
+            min-height: 100vh;
+            transition: all 0.3s;
+            background-color: var(--light-color);
+        }
+        
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(94, 34, 23, 0.1);
+            margin-bottom: 20px;
+            background-color: white;
+        }
+        
+        .card-header {
+            background-color: var(--light-color);
+            border-bottom: 1px solid #8B4513;
+            padding: 15px 20px;
+            font-weight: 600;
+            border-radius: 10px 10px 0 0 !important;
+            color: var(--primary-color);
+        }
+        
+        .stat-card {
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            height: 100%;
+            background: var(--primary-color);
+        }
+        
+        .stat-card .stat-title {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            opacity: 0.8;
+        }
+        
+        .stat-card .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .stat-card .stat-icon {
+            font-size: 2rem;
+            opacity: 0.8;
+            color: var(--light-color);
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        
+        .recent-orders table {
+            width: 100%;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+            border-color: var(--primary-hover);
+        }
+        
+        .btn-outline-primary {
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-outline-primary:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        h2, h4 {
+            color: var(--primary-color);
+        }
+        
+        @media (max-width: 768px) {
+            #sidebar {
+                margin-left: -var(--sidebar-width);
+            }
+            
+            #content {
+                width: 100%;
+                margin-left: 0;
+            }
+            
+            #sidebar.active {
+                margin-left: 0;
+            }
+        }
