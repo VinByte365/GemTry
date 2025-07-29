@@ -1,9 +1,9 @@
 const db = require('../config/database');
 
 exports.fetchAllProducts = (req, res) => {
-    const sql = 'SELECT * FROM products';
+    const sql = 'SELECT * FROM items';
 
-    db.query(sql, (err, result, fields) => {
+    db.execute(sql, (err, result, fields) => {
         if (err) {
             return console.error('Error: ', err) && res.status(500);
         }
@@ -18,9 +18,9 @@ exports.createNewProduct = (req, res) => {
             return res.status(400).json({ msg: 'Name and Price are required.' });
         }
     
-        const sql = 'INSERT INTO products (name, price, description, created_at) VALUES (?, ?, ?)';
+        const sql = 'INSERT INTO items (name, price, description, created_at) VALUES (?, ?, ?)';
         
-        db.query(sql, (err, result) => {
+        db.execute(sql, (err, result) => {
             if (err) {
                 console.error(err);
                 return res.status(500).json({ msg: 'Internal Server Error', err });
@@ -33,7 +33,7 @@ exports.createNewProduct = (req, res) => {
 
 exports.fetchOneProduct = (req, res) => {
     const id = parseInt(req.params.id);
-    const sql = `SELECT * FROM products WHERE id = ${id}`
+    const sql = `SELECT * FROM items WHERE id = ${id}`
     db.query(sql, (err, values) => {
         if (err) {
             return console.error('Error: ', err);
@@ -47,11 +47,12 @@ exports.fetchOneProduct = (req, res) => {
 
         res.status(200).json({msg: `Product No. ${oneProduct.id} fetched.`})
     }
-    )}
+    )
+}
 
 exports.deleteProduct = (req, res) => {
     const id = parseInt(req.params.id);
-    const fetchSQL = `SELECT * FROM products WHERE id = ${id}`;
+    const fetchSQL = `SELECT * FROM items WHERE id = ${id}`;
     db.query(fetchSQL, (err, values) => {
         if (err) {
             return console.error('Error: ', err);
@@ -63,7 +64,7 @@ exports.deleteProduct = (req, res) => {
             return res.status(404).json({ msg: `ID: ${id} not found.` });
         }
 
-        const deleteSQL = `DELETE FROM products WHERE id = ${id}`;
+        const deleteSQL = `DELETE FROM items WHERE id = ${id}`;
 
         db.query(deleteSQL, (err, success) => {
             if (err) {
@@ -82,7 +83,7 @@ exports.updateProductDetails = (req, res) => {
             return res.status(400).json({ msg: 'Name and Price are required.' });
         }
     
-        const sql = 'INSERT INTO products (name, price, description, created_at) VALUES (?, ?, ?)';
+        const sql = 'INSERT INTO items (name, price, description, created_at) VALUES (?, ?, ?)';
         
         db.query(sql, (err, result) => {
             if (err) {
