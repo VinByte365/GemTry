@@ -1,19 +1,22 @@
 const mysql = require('mysql2');
-require('dotenv').config();
+const config = require('./server');
 
 const db = mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT
+    host: config.DB_HOST,
+    user: config.DB_USER,
+    password: config.DB_PASSWORD,
+    database: config.DB_NAME,
+    port: config.DB_PORT
 });
 
 db.connect((err) => {
     if (err) {
-        return console.error('Connection Failed', err);
+        console.error('❌ Database connection failed:', err.message);
+        console.log('Please check your .env file configuration.');
+    } else {
+        console.log('✅ Database connection established successfully!');
+        console.log(`📊 Connected to: ${config.DB_NAME} on ${config.DB_HOST}:${config.DB_PORT}`);
     }
-    return console.log('Connected Successfully!');
 });
 
 module.exports = db;

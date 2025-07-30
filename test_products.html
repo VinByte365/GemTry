@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Management Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>Product Management System Test</h1>
+        
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>API Endpoints Test</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Backend Status</h6>
+                                <div id="backendStatus" class="alert alert-info">
+                                    Checking backend connection...
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>DataTable Status</h6>
+                                <div id="datatableStatus" class="alert alert-info">
+                                    Checking DataTable...
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <h6>Products Table</h6>
+                                <table id="testTable" class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Name</th>
+                                            <th>Price</th>
+                                            <th>Category</th>
+                                            <th>Stock</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Data will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    
+    <script>
+        $(document).ready(function() {
+            // Test backend connection
+            $.ajax({
+                url: 'http://localhost:8080/api/v1/product',
+                type: 'GET',
+                success: function(data) {
+                    $('#backendStatus').removeClass('alert-info alert-danger').addClass('alert-success');
+                    $('#backendStatus').html(`<i class="bi bi-check-circle"></i> Backend connected successfully. Found ${data.length} products.`);
+                    
+                    // Initialize test table
+                    const testTable = $('#testTable').DataTable({
+                        data: data,
+                        columns: [
+                            { data: 'item_id' },
+                            { data: 'item_name' },
+                            { 
+                                data: 'item_price',
+                                render: function(data) {
+                                    return `$${parseFloat(data || 0).toFixed(2)}`;
+                                }
+                            },
+                            { 
+                                data: 'category_name',
+                                render: function(data) {
+                                    return data || 'Uncategorized';
+                                }
+                            },
+                            { 
+                                data: 'stock_qty',
+                                render: function(data) {
+                                    const qty = parseInt(data || 0);
+                                    let badgeClass = 'badge bg-success';
+                                    if (qty === 0) {
+                                        badgeClass = 'badge bg-danger';
+                                    } else if (qty < 10) {
+                                        badgeClass = 'badge bg-warning';
+                                    }
+                                    return `<span class="${badgeClass}">${qty}</span>`;
+                                }
+                            }
+                        ],
+                        responsive: true,
+                        pageLength: 5
+                    });
+                    
+                    $('#datatableStatus').removeClass('alert-info alert-danger').addClass('alert-success');
+                    $('#datatableStatus').html(`<i class="bi bi-check-circle"></i> DataTable initialized successfully.`);
+                },
+                error: function(xhr, status, error) {
+                    $('#backendStatus').removeClass('alert-info alert-success').addClass('alert-danger');
+                    $('#backendStatus').html(`<i class="bi bi-x-circle"></i> Backend connection failed: ${error}`);
+                    
+                    $('#datatableStatus').removeClass('alert-info alert-success').addClass('alert-danger');
+                    $('#datatableStatus').html(`<i class="bi bi-x-circle"></i> DataTable failed to initialize.`);
+                }
+            });
+        });
+    </script>
+</body>
+</html> 

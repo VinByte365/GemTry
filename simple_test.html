@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Backend Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>Backend Connection Test</h1>
+        
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>API Connection Test</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Backend Status</h6>
+                                <div id="backendStatus" class="alert alert-info">
+                                    Testing connection...
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Response Data</h6>
+                                <div id="responseData" class="alert alert-secondary">
+                                    Waiting for response...
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <button id="testBtn" class="btn btn-primary">Test Connection</button>
+                                <button id="retryBtn" class="btn btn-secondary ms-2">Retry</button>
+                            </div>
+                        </div>
+                        
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <h6>Products (if any)</h6>
+                                <div id="productsList" class="mt-2">
+                                    <!-- Products will be listed here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <script>
+        $(document).ready(function() {
+            function testConnection() {
+                $('#backendStatus').removeClass('alert-success alert-danger').addClass('alert-info');
+                $('#backendStatus').html('Testing connection...');
+                $('#responseData').html('Waiting for response...');
+                $('#productsList').html('');
+                
+                $.ajax({
+                    url: 'http://localhost:8080/api/v1/product',
+                    type: 'GET',
+                    timeout: 10000, // 10 second timeout
+                    success: function(data) {
+                        $('#backendStatus').removeClass('alert-info alert-danger').addClass('alert-success');
+                        $('#backendStatus').html(`✅ Connection successful! Found ${data.length} products.`);
+                        
+                        $('#responseData').html(`<pre>${JSON.stringify(data, null, 2)}</pre>`);
+                        
+                        if (data.length > 0) {
+                            let productsHtml = '<div class="list-group">';
+                            data.forEach(product => {
+                                productsHtml += `
+                                    <div class="list-group-item">
+                                        <h6>${product.item_name || 'Unknown'}</h6>
+                                        <p class="mb-1">Price: $${product.item_price || 0}</p>
+                                        <small>ID: ${product.item_id}</small>
+                                    </div>
+                                `;
+                            });
+                            productsHtml += '</div>';
+                            $('#productsList').html(productsHtml);
+                        } else {
+                            $('#productsList').html('<p class="text-muted">No products found.</p>');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        $('#backendStatus').removeClass('alert-info alert-success').addClass('alert-danger');
+                        
+                        let errorMessage = 'Connection failed';
+                        if (status === 'timeout') {
+                            errorMessage = 'Connection timeout - server not responding';
+                        } else if (xhr.status === 0) {
+                            errorMessage = 'Cannot connect to server - check if backend is running';
+                        } else {
+                            errorMessage = `Error ${xhr.status}: ${error}`;
+                        }
+                        
+                        $('#backendStatus').html(`❌ ${errorMessage}`);
+                        $('#responseData').html(`<pre>Status: ${status}\nError: ${error}\nResponse: ${xhr.responseText || 'No response'}</pre>`);
+                    }
+                });
+            }
+            
+            // Test on page load
+            testConnection();
+            
+            // Test button click
+            $('#testBtn').click(testConnection);
+            $('#retryBtn').click(testConnection);
+        });
+    </script>
+</body>
+</html> 
