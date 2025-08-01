@@ -3,8 +3,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize charts with empty data
     initializeCharts();
     
-    // Fetch data from the server (placeholder for Express.js backend)
+    // Fetch data from the server
     fetchDashboardData();
+    
+    // Refresh data every 5 minutes
+    setInterval(fetchDashboardData, 300000);
 });
 
 function initializeCharts() {
@@ -131,80 +134,277 @@ function initializeCharts() {
     };
 }
 
-// Function to fetch data from the backend (Express.js)
+// Function to fetch data from the backend using AJAX
 function fetchDashboardData() {
-    // Placeholder for actual fetch call to your Express.js backend
-    // fetch('/api/dashboard')
-    //     .then(response => response.json())
-    //     .then(data => updateDashboard(data))
-    //     .catch(error => console.error('Error fetching dashboard data:', error));
+    // Show loading indicator if available
+    showLoadingIndicator();
     
-    // For demo purposes, we'll use mock data
-    const mockData = {
-        totalProducts: 124,
-        totalOrders: 56,
-        totalRevenue: 8924,
-        salesData: [1200, 1900, 1500, 2100, 3200, 2800, 3800],
-        orderStatusData: [12, 18, 20, 6],
-        topProducts: {
-            labels: ['Product A', 'Product B', 'Product C', 'Product D', 'Product E'],
-            data: [45, 32, 28, 19, 12]
+    $.ajax({
+        url: 'http://localhost:8080/api/v1/dashboard/stats',
+        method: 'GET',
+        dataType: 'json',
+        timeout: 30000, // 30 second timeout
+        crossDomain: true,
+        xhrFields: {
+            withCredentials: false
         },
-        recentOrders: [
-            { id: '#ORD-001', customer: 'John Doe', date: '2023-07-15', amount: 125.99, status: 'Delivered' },
-            { id: '#ORD-002', customer: 'Jane Smith', date: '2023-07-14', amount: 89.50, status: 'Shipped' },
-            { id: '#ORD-003', customer: 'Robert Johnson', date: '2023-07-14', amount: 210.00, status: 'Processing' },
-            { id: '#ORD-004', customer: 'Emily Davis', date: '2023-07-13', amount: 56.75, status: 'Delivered' },
-            { id: '#ORD-005', customer: 'Michael Wilson', date: '2023-07-12', amount: 342.60, status: 'Delivered' }
-        ]
-    };
-    
-    updateDashboard(mockData);
-}
-
-function updateDashboard(data) {
-    // Update stat cards
-    document.getElementById('total-products').textContent = data.totalProducts;
-    document.getElementById('total-orders').textContent = data.totalOrders;
-    document.getElementById('total-revenue').textContent = `$${data.totalRevenue.toLocaleString()}`;
-    
-    // Update charts with data
-    window.dashboardCharts.sales.data.datasets[0].data = data.salesData;
-    window.dashboardCharts.sales.update();
-    
-    window.dashboardCharts.orderStatus.data.datasets[0].data = data.orderStatusData;
-    window.dashboardCharts.orderStatus.update();
-    
-    window.dashboardCharts.topProducts.data.labels = data.topProducts.labels;
-    window.dashboardCharts.topProducts.data.datasets[0].data = data.topProducts.data;
-    window.dashboardCharts.topProducts.update();
-    
-    // Update recent orders table
-    const ordersTable = document.querySelector('#recent-orders tbody');
-    if (data.recentOrders && data.recentOrders.length > 0) {
-        ordersTable.innerHTML = '';
-        data.recentOrders.forEach(order => {
-            const row = document.createElement('tr');
+        beforeSend: function(xhr) {
+            // Add any headers if needed
+            xhr.setRequestHeader('Content-Type', 'application/json');
+        },
+        success: function(data) {
+            console.log('Dashboard data received:', data);
             
-            // Status badge
-            let statusClass = '';
-            switch(order.status.toLowerCase()) {
-                case 'processing': statusClass = 'bg-primary'; break;
-                case 'shipped': statusClass = 'bg-info'; break;
-                case 'delivered': statusClass = 'bg-success'; break;
-                case 'cancelled': statusClass = 'bg-danger'; break;
-                default: statusClass = 'bg-secondary';
+            try {
+                // Validate the response structure
+                if (!data || typeof data !== 'object') {
+                    throw new Error('Invalid response format');
+                }
+                
+                // Process and update dashboard with the received data
+                updateDashboard(data);
+                
+            } catch (error) {
+                console.error('Error processing dashboard data:', error);
+                showErrorMessage('Failed to process dashboard data');
+                loadFallbackData();
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('AJAX Error Details:');
+            console.error('Status:', status);
+            console.error('Error:', error);
+            console.error('Response Text:', xhr.responseText);
+            console.error('Status Code:', xhr.status);
+            
+            let errorMessage = 'Failed to fetch dashboard data.';
+            
+            // Handle different error types
+            switch(status) {
+                case 'timeout':
+                    errorMessage = 'Request timed out. Please check your connection.';
+                    break;
+                case 'error':
+                    if (xhr.status === 0) {
+                        errorMessage = 'Unable to connect to server. Please check if the server is running.';
+                    } else if (xhr.status >= 500) {
+                        errorMessage = 'Server error occurred. Please try again later.';
+                    } else if (xhr.status >= 400) {
+                        errorMessage = 'Bad request. Please check the API endpoint.';
+                    }
+                    break;
+                case 'parsererror':
+                    errorMessage = 'Invalid response format from server.';
+                    break;
             }
             
-            row.innerHTML = `
-                <td>${order.id}</td>
-                <td>${order.customer}</td>
-                <td>${order.date}</td>
-                <td>$${order.amount.toFixed(2)}</td>
-                <td><span class="badge ${statusClass}">${order.status}</span></td>
-                <td><button class="btn btn-sm btn-outline-primary">View</button></td>
-            `;
-            ordersTable.appendChild(row);
-        });
+            showErrorMessage(errorMessage);
+            
+            // Load fallback data to prevent broken dashboard
+            loadFallbackData();
+        },
+        complete: function() {
+            // Hide loading indicator
+            hideLoadingIndicator();
+        }
+    });
+}
+
+// Function to update dashboard with fetched data
+function updateDashboard(data) {
+    try {
+        // Safely extract statistics with fallbacks
+        const statistics = data.statistics || {};
+        const totalProducts = statistics.totalItems || 0;
+        const totalOrders = statistics.totalOrders || 0;
+        const totalRevenue = parseFloat(statistics.totalSales) || 0;
+        
+        // Update stat cards
+        const productElement = document.getElementById('total-products');
+        const ordersElement = document.getElementById('total-orders');
+        const revenueElement = document.getElementById('total-revenue');
+        
+        if (productElement) productElement.textContent = totalProducts.toLocaleString();
+        if (ordersElement) ordersElement.textContent = totalOrders.toLocaleString();
+        if (revenueElement) revenueElement.textContent = `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        
+        // Update sales chart with mock data for now (you can modify backend to provide monthly sales)
+        const salesData = data.salesData || generateMockSalesData(totalRevenue);
+        if (window.dashboardCharts && window.dashboardCharts.sales) {
+            window.dashboardCharts.sales.data.datasets[0].data = salesData;
+            window.dashboardCharts.sales.update();
+        }
+        
+        // Update order status chart with calculated data
+        const orderStatusData = calculateOrderStatusData(data.recentOrders || []);
+        if (window.dashboardCharts && window.dashboardCharts.orderStatus) {
+            window.dashboardCharts.orderStatus.data.datasets[0].data = orderStatusData;
+            window.dashboardCharts.orderStatus.update();
+        }
+        
+        // Update top products chart
+        const topProducts = data.topSellingItems || [];
+        const topProductsLabels = topProducts.map(item => item.item_name || 'Unknown').slice(0, 5);
+        const topProductsData = topProducts.map(item => parseInt(item.total_quantity) || 0).slice(0, 5);
+        
+        if (window.dashboardCharts && window.dashboardCharts.topProducts) {
+            window.dashboardCharts.topProducts.data.labels = topProductsLabels;
+            window.dashboardCharts.topProducts.data.datasets[0].data = topProductsData;
+            window.dashboardCharts.topProducts.update();
+        }
+        
+        // Update recent orders table
+        updateRecentOrdersTable(data.recentOrders || []);
+        
+        console.log('Dashboard updated successfully');
+        
+    } catch (error) {
+        console.error('Error updating dashboard:', error);
+        showErrorMessage('Failed to update dashboard display');
     }
+}
+
+// Function to update recent orders table
+function updateRecentOrdersTable(recentOrders) {
+    const ordersTable = document.querySelector('#recent-orders tbody');
+    
+    if (!ordersTable) {
+        console.warn('Recent orders table not found');
+        return;
+    }
+    
+    if (!recentOrders || recentOrders.length === 0) {
+        ordersTable.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No recent orders found</td></tr>';
+        return;
+    }
+    
+    ordersTable.innerHTML = '';
+    
+    recentOrders.forEach(order => {
+        const row = document.createElement('tr');
+        
+        // Format order data safely
+        const orderId = order.order_id ? `#ORD-${order.order_id}` : 'N/A';
+        const customerName = order.customer_name || 'Anonymous';
+        const orderDate = order.order_placed ? new Date(order.order_placed).toLocaleDateString() : 'N/A';
+        const totalAmount = parseFloat(order.total_amount) || 0;
+        const orderStatus = order.order_status || 'unknown';
+        
+        // Status badge styling
+        let statusClass = '';
+        switch(orderStatus.toLowerCase()) {
+            case 'processing': statusClass = 'bg-primary'; break;
+            case 'shipped': statusClass = 'bg-info'; break;
+            case 'delivered': statusClass = 'bg-success'; break;
+            case 'cancelled': statusClass = 'bg-danger'; break;
+            case 'refunded': statusClass = 'bg-warning'; break;
+            default: statusClass = 'bg-secondary';
+        }
+        
+        row.innerHTML = `
+            <td>${orderId}</td>
+            <td>${customerName}</td>
+            <td>${orderDate}</td>
+            <td>$${totalAmount.toFixed(2)}</td>
+            <td><span class="badge ${statusClass}">${orderStatus}</span></td>
+            <td><button class="btn btn-sm btn-outline-primary" onclick="viewOrder(${order.order_id})">View</button></td>
+        `;
+        
+        ordersTable.appendChild(row);
+    });
+}
+
+// Helper function to calculate order status distribution
+function calculateOrderStatusData(orders) {
+    const statusCounts = {
+        processing: 0,
+        shipped: 0,
+        delivered: 0,
+        cancelled: 0
+    };
+    
+    orders.forEach(order => {
+        const status = (order.order_status || '').toLowerCase();
+        if (statusCounts.hasOwnProperty(status)) {
+            statusCounts[status]++;
+        }
+    });
+    
+    return [statusCounts.processing, statusCounts.shipped, statusCounts.delivered, statusCounts.cancelled];
+}
+
+// Helper function to generate mock sales data based on total revenue
+function generateMockSalesData(totalRevenue) {
+    const baseValue = totalRevenue / 7; // Distribute across 7 months
+    return [
+        Math.round(baseValue * 0.8),
+        Math.round(baseValue * 1.2),
+        Math.round(baseValue * 0.9),
+        Math.round(baseValue * 1.4),
+        Math.round(baseValue * 1.6),
+        Math.round(baseValue * 1.3),
+        Math.round(baseValue * 1.1)
+    ];
+}
+
+// Function to load fallback data when server is unavailable
+function loadFallbackData() {
+    console.warn('Loading fallback data due to server error');
+    
+    const fallbackData = {
+        statistics: {
+            totalItems: 0,
+            totalSales: 0,
+            totalOrders: 0
+        },
+        recentOrders: [],
+        topSellingItems: []
+    };
+    
+    updateDashboard(fallbackData);
+}
+
+// Loading indicator functions
+function showLoadingIndicator() {
+    const indicators = document.querySelectorAll('.dashboard-loading');
+    indicators.forEach(indicator => {
+        if (indicator) indicator.style.display = 'block';
+    });
+}
+
+function hideLoadingIndicator() {
+    const indicators = document.querySelectorAll('.dashboard-loading');
+    indicators.forEach(indicator => {
+        if (indicator) indicator.style.display = 'none';
+    });
+}
+
+// Error message display function
+function showErrorMessage(message) {
+    console.error('Dashboard Error:', message);
+    
+    // You can implement a toast notification or alert here
+    const errorContainer = document.getElementById('dashboard-error');
+    if (errorContainer) {
+        errorContainer.textContent = message;
+        errorContainer.style.display = 'block';
+        
+        // Hide error after 5 seconds
+        setTimeout(() => {
+            errorContainer.style.display = 'none';
+        }, 5000);
+    }
+}
+
+// Function to view order details (placeholder)
+function viewOrder(orderId) {
+    console.log('View order:', orderId);
+    // Implement order view functionality
+    alert(`View order #${orderId} - Feature to be implemented`);
+}
+
+// Manual refresh function
+function refreshDashboard() {
+    console.log('Manually refreshing dashboard...');
+    fetchDashboardData();
 }

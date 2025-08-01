@@ -1,14 +1,11 @@
 const express = require('express');
 const router = express.Router();
 
-const path = require('path');
-
 const {
-    totalItem
+    getDashboardStats
 } = require('../controllers/dashboard')
 
-//Routes
-router.route('/')
-    .get(totalItem);
+// Dashboard statistics route
+router.get('/stats', getDashboardStats);
 
 module.exports = router;
