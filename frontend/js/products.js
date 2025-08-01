@@ -1,9 +1,39 @@
-// Product Management JavaScript
+// Product Management JavaScript with SweetAlert2
 document.addEventListener('DOMContentLoaded', function() {
     initializeProductManagement();
 });
 
-function initializeProductManagement() {
+async function fetchCategories() {
+    try {
+        const response = await $.ajax({
+            url: 'http://localhost:8080/api/v1/product/categories',
+            type: 'GET'
+        });
+        return response;
+    } catch (error) {
+        console.error('Error fetching categories:', error);
+        return [];
+    }
+}
+
+async function initializeProductManagement() {
+    const categories = await fetchCategories();
+    console.log(categories);
+    
+    // Populate category filter dropdown
+    const categoryFilter = $('#categoryFilter');
+    categoryFilter.empty().append('<option value="">All Categories</option>');
+    categories.forEach(category => {
+        categoryFilter.append(`<option value="${category.category_name}">${category.category_name}</option>`);
+    });
+    
+    // Populate product category dropdown in the form
+    const productCategory = $('#productCategory');
+    productCategory.empty().append('<option value="">Select Category</option>');
+    categories.forEach(category => {
+        productCategory.append(`<option value="${category.category_id}">${category.category_name}</option>`);
+    });
+    
     // Initialize DataTable
     const productsTable = $('#productsTable').DataTable({
         ajax: {
@@ -11,7 +41,12 @@ function initializeProductManagement() {
             dataSrc: '',
             error: function(xhr, error, thrown) {
                 console.error('DataTable error:', error);
-                alert('Error loading products. Please refresh the page.');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Loading Error',
+                    text: 'Error loading products. Please refresh the page.',
+                    confirmButtonText: 'OK'
+                });
             }
         },
         columns: [
@@ -106,16 +141,21 @@ function initializeProductManagement() {
         }
     });
 
-    // Handle image preview
-    document.getElementById('productImage').addEventListener('change', function(e) {
+    // Handle image preview for main product image
+    document.getElementById('mainProductImage').addEventListener('change', function(e) {
         const file = e.target.files[0];
-        const preview = document.getElementById('imagePreview');
-        const previewImg = document.getElementById('previewImg');
+        const preview = document.getElementById('mainImagePreview');
+        const previewImg = document.getElementById('mainPreviewImg');
         
         if (file) {
             // Validate file size (5MB)
             if (file.size > 5 * 1024 * 1024) {
-                alert('File size must be less than 5MB.');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'File Too Large',
+                    text: 'File size must be less than 5MB.',
+                    confirmButtonText: 'OK'
+                });
                 this.value = '';
                 return;
             }
@@ -123,7 +163,12 @@ function initializeProductManagement() {
             // Validate file type
             const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
             if (!allowedTypes.includes(file.type)) {
-                alert('Please select a valid image file (JPG, PNG, GIF).');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Invalid File Type',
+                    text: 'Please select a valid image file (JPG, PNG, GIF).',
+                    confirmButtonText: 'OK'
+                });
                 this.value = '';
                 return;
             }
@@ -139,44 +184,110 @@ function initializeProductManagement() {
         }
     });
 
+    // Handle gallery images preview
+    document.getElementById('productGallery').addEventListener('change', function(e) {
+        const files = e.target.files;
+        const galleryContainer = document.getElementById('galleryPreview');
+        const emptyMessage = document.getElementById('emptyGalleryMessage');
+        
+        if (files.length > 0) {
+            emptyMessage.style.display = 'none';
+            
+            // Clear existing previews
+            galleryContainer.innerHTML = '';
+            
+            Array.from(files).forEach((file, index) => {
+                if (file && file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const galleryItem = document.createElement('div');
+                        galleryItem.className = 'position-relative d-inline-block';
+                        galleryItem.innerHTML = `
+                            <img src="${e.target.result}" alt="Gallery Image ${index + 1}" class="img-thumbnail" style="max-width: 120px; max-height: 120px; object-fit: cover;">
+                            <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 remove-gallery-preview" data-index="${index}">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        `;
+                        galleryContainer.appendChild(galleryItem);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        } else {
+            emptyMessage.style.display = 'block';
+            galleryContainer.innerHTML = '';
+        }
+    });
+
     // Handle form submission
-    document.getElementById('saveProduct').addEventListener('click', function() {
+    document.getElementById('saveProduct').addEventListener('click', function () {
         const formData = new FormData();
         const productId = document.getElementById('productId').value;
         const productName = document.getElementById('productName').value.trim();
+        const productCategory = document.getElementById('productCategory').value;
         const productPrice = document.getElementById('productPrice').value;
+        const productStock = document.getElementById('productStock').value;
         const productDescription = document.getElementById('productDescription').value.trim();
-        const productImage = document.getElementById('productImage').files[0];
+        const mainImage = document.getElementById('mainProductImage').files[0];
+        const galleryImages = document.getElementById('productGallery').files;
 
-        // Validate required fields
+        // For editing, only require name. For new products, require all fields
         if (!productName) {
-            alert('Please enter a product name.');
-            document.getElementById('productName').focus();
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Information',
+                text: 'Product name is required.',
+                confirmButtonText: 'OK'
+            });
             return;
         }
         
-        if (!productPrice || parseFloat(productPrice) <= 0) {
-            alert('Please enter a valid price.');
-            document.getElementById('productPrice').focus();
+        if (!productId && (!productCategory || !productPrice || !productStock)) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Information',
+                text: 'Please fill in all required fields for new product.',
+                confirmButtonText: 'OK'
+            });
             return;
         }
 
-        // Show loading state
+        // Prepare form data - match the backend field names
+        formData.append('name', productName);
+        if (productCategory) formData.append('category', productCategory);
+        if (productPrice) formData.append('price', productPrice);
+        if (productStock) formData.append('stock', productStock);
+        if (productDescription) formData.append('description', productDescription);
+
+        // Match the backend multer field names
+        if (mainImage) {
+            formData.append('mainImage', mainImage); // Backend expects 'mainImage'
+        }
+
+        if (galleryImages && galleryImages.length > 0) {
+            Array.from(galleryImages).forEach(file => {
+                formData.append('galleryImages', file); // Backend expects 'galleryImages'
+            });
+        }
+
+        const url = productId
+            ? `http://localhost:8080/api/v1/product/${productId}`
+            : 'http://localhost:8080/api/v1/product';
+        const method = productId ? 'PUT' : 'POST';
+
         const saveBtn = this;
-        const originalText = saveBtn.innerHTML;
+        const originalHtml = saveBtn.innerHTML;
+        
+        // Set loading state
         saveBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Saving...';
         saveBtn.disabled = true;
 
-        formData.append('name', productName);
-        formData.append('price', productPrice);
-        formData.append('description', productDescription);
-        
-        if (productImage) {
-            formData.append('image', productImage);
+        // Debug: Log the form data
+        console.log('Submitting form with method:', method);
+        console.log('URL:', url);
+        for (let pair of formData.entries()) {
+            console.log(pair[0] + ': ' + pair[1]);
         }
-
-        const url = productId ? `http://localhost:8080/api/v1/product/${productId}` : 'http://localhost:8080/api/v1/product';
-        const method = productId ? 'PUT' : 'POST';
 
         $.ajax({
             url: url,
@@ -184,74 +295,165 @@ function initializeProductManagement() {
             data: formData,
             processData: false,
             contentType: false,
-            success: function(data) {
-                if (data.msg) {
-                    alert(data.msg);
-                    if (data.msg.includes('successfully')) {
-                        // Close modal and refresh table
+            timeout: 30000, // 30 second timeout
+            success: function (data) {
+                console.log('Success response:', data);
+                
+                // Show success message with SweetAlert2
+                const message = (data && data.msg) ? data.msg : 'Product saved successfully!';
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: message,
+                    confirmButtonText: 'OK',
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    // Close modal and refresh table on success
+                    try {
                         const modal = bootstrap.Modal.getInstance(document.getElementById('productModal'));
-                        modal.hide();
-                        productsTable.ajax.reload();
+                        if (modal) {
+                            modal.hide();
+                        }
+                        
+                        // Refresh the products table
+                        if (typeof productsTable !== 'undefined' && productsTable.ajax) {
+                            productsTable.ajax.reload(null, false); // Keep current page
+                        }
+                        
+                        // Reset the form
                         resetForm();
+                    } catch (modalError) {
+                        console.error('Error closing modal:', modalError);
                     }
-                }
+                });
             },
-            error: function(xhr, status, error) {
-                console.error('Error:', error);
+            error: function (xhr, status, error) {
+                console.error('Ajax error:', {xhr, status, error});
+                console.error('Response text:', xhr.responseText);
+                
                 let errorMessage = 'An error occurred while saving the product.';
                 
-                if (xhr.responseJSON && xhr.responseJSON.msg) {
-                    errorMessage = xhr.responseJSON.msg;
+                // Try to get error message from response
+                try {
+                    if (xhr.responseJSON && xhr.responseJSON.msg) {
+                        errorMessage = xhr.responseJSON.msg;
+                    } else if (xhr.responseText) {
+                        const responseObj = JSON.parse(xhr.responseText);
+                        if (responseObj.msg) {
+                            errorMessage = responseObj.msg;
+                        }
+                    }
+                } catch (parseError) {
+                    console.error('Error parsing response:', parseError);
+                    if (status === 'timeout') {
+                        errorMessage = 'Request timed out. Please try again.';
+                    } else if (status === 'error') {
+                        errorMessage = 'Network error. Please check your connection.';
+                    }
                 }
                 
-                alert(errorMessage);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    text: errorMessage,
+                    confirmButtonText: 'OK'
+                });
             },
-            complete: function() {
-                // Reset button state
-                saveBtn.innerHTML = originalText;
+            complete: function (xhr, status) {
+                console.log('Request completed with status:', status);
+                
+                // Always reset button state regardless of success or failure
+                saveBtn.innerHTML = originalHtml;
                 saveBtn.disabled = false;
             }
         });
     });
 
     // Handle edit product
-    $(document).on('click', '.edit-product', function() {
+    $(document).on('click', '.edit-product', function () {
         const productId = $(this).data('id');
-        
+
         // Show loading state
         $(this).prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
-        
+
         $.ajax({
             url: `http://localhost:8080/api/v1/product/${productId}`,
             type: 'GET',
-            success: function(data) {
+            success: function (data) {
                 if (data.product) {
                     const product = data.product;
-                    document.getElementById('productId').value = product.item_id;
-                    document.getElementById('productName').value = product.item_name;
-                    document.getElementById('productPrice').value = product.item_price;
-                    document.getElementById('productDescription').value = product.item_desc || '';
+
+                    // Fill in basic fields
+                    $('#productId').val(product.item_id);
+                    $('#productName').val(product.item_name);
+                    $('#productPrice').val(product.item_price);
+                    $('#productDescription').val(product.item_desc || '');
+                    $('#productStock').val(product.stock_qty || '');
                     
-                    // Show current image if exists
-                    const preview = document.getElementById('imagePreview');
-                    const previewImg = document.getElementById('previewImg');
-                    if (product.item_img) {
-                        previewImg.src = `/${product.item_img}`;
-                        preview.style.display = 'block';
+                    // Set category - check if category exists in dropdown
+                    if (product.category_id) {
+                        const categoryOption = $(`#productCategory option[value="${product.category_id}"]`);
+                        if (categoryOption.length > 0) {
+                            $('#productCategory').val(product.category_id);
+                        } else {
+                            console.warn(`Category ID ${product.category_id} not found in dropdown options`);
+                            $('#productCategory').val('');
+                        }
                     } else {
-                        preview.style.display = 'none';
+                        $('#productCategory').val('');
                     }
-                    
-                    document.getElementById('productModalLabel').textContent = 'Edit Product';
+
+                    // Main image preview
+                    const mainImagePreview = $('#mainImagePreview');
+                    const mainPreviewImg = $('#mainPreviewImg');
+                    if (product.item_img) {
+                        mainPreviewImg.attr('src', `http://localhost:8080/${product.item_img}`);
+                        mainImagePreview.show();
+                    } else {
+                        mainPreviewImg.attr('src', '');
+                        mainImagePreview.hide();
+                    }
+
+                    // Clear existing gallery previews
+                    const galleryContainer = $('#galleryPreview');
+                    galleryContainer.empty();
+
+                    if (Array.isArray(data.gallery) && data.gallery.length > 0) {
+                        $('#emptyGalleryMessage').hide();
+                        data.gallery.forEach((img, index) => {
+                            const imgPath = `http://localhost:8080/${img.item_path}`;
+                            const galleryItem = $(`
+                                <div class="position-relative d-inline-block">
+                                    <img src="${imgPath}" alt="Gallery Image ${index + 1}" class="img-thumbnail" style="max-width: 150px; max-height: 150px;">
+                                    <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 remove-gallery-image" data-path="${img.item_path}">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                            `);
+                            galleryContainer.append(galleryItem);
+                        });
+                    } else {
+                        $('#emptyGalleryMessage').show();
+                    }
+
+                    // Update modal title and show it
+                    $('#productModalLabel').text('Edit Product');
                     const modal = new bootstrap.Modal(document.getElementById('productModal'));
                     modal.show();
                 }
             },
-            error: function(xhr, status, error) {
+            error: function (xhr, status, error) {
                 console.error('Error:', error);
-                alert('Error loading product details.');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Loading Error',
+                    text: 'Error loading product details.',
+                    confirmButtonText: 'OK'
+                });
             },
-            complete: function() {
+            complete: function () {
                 // Reset button state
                 $('.edit-product[data-id="' + productId + '"]').prop('disabled', false).html('<i class="bi bi-pencil"></i>');
             }
@@ -261,49 +463,73 @@ function initializeProductManagement() {
     // Handle delete product
     $(document).on('click', '.delete-product', function() {
         const productId = $(this).data('id');
-        const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
-        deleteModal.show();
         
-        document.getElementById('confirmDelete').onclick = function() {
-            // Show loading state
-            const confirmBtn = this;
-            const originalText = confirmBtn.innerHTML;
-            confirmBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Deleting...';
-            confirmBtn.disabled = true;
-            
-            $.ajax({
-                url: `http://localhost:8080/api/v1/product/${productId}`,
-                type: 'DELETE',
-                success: function(data) {
-                    alert(data.msg);
-                    if (data.msg.includes('successfully')) {
-                        productsTable.ajax.reload();
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "You won't be able to revert this!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete it!',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Show loading toast
+                Swal.fire({
+                    title: 'Deleting...',
+                    text: 'Please wait while we delete the product.',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => {
+                        Swal.showLoading();
                     }
-                    deleteModal.hide();
-                },
-                error: function(xhr, status, error) {
-                    console.error('Error:', error);
-                    let errorMessage = 'Error deleting product.';
-                    
-                    if (xhr.responseJSON && xhr.responseJSON.msg) {
-                        errorMessage = xhr.responseJSON.msg;
+                });
+                
+                $.ajax({
+                    url: `http://localhost:8080/api/v1/product/${productId}`,
+                    type: 'DELETE',
+                    success: function(data) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted!',
+                            text: data.msg || 'Product has been deleted successfully.',
+                            confirmButtonText: 'OK',
+                            timer: 3000,
+                            timerProgressBar: true
+                        });
+                        
+                        if (data.msg && data.msg.includes('successfully')) {
+                            productsTable.ajax.reload();
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error:', error);
+                        let errorMessage = 'Error deleting product.';
+                        
+                        if (xhr.responseJSON && xhr.responseJSON.msg) {
+                            errorMessage = xhr.responseJSON.msg;
+                        }
+                        
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Delete Failed',
+                            text: errorMessage,
+                            confirmButtonText: 'OK'
+                        });
                     }
-                    
-                    alert(errorMessage);
-                },
-                complete: function() {
-                    // Reset button state
-                    confirmBtn.innerHTML = originalText;
-                    confirmBtn.disabled = false;
-                }
-            });
-        };
+                });
+            }
+        });
     });
 
     // Handle add new product
-    document.getElementById('addProductBtn').addEventListener('click', function() {
+    $(document).on('click', '#addProductBtn', function() {
         resetForm();
-        document.getElementById('productModalLabel').textContent = 'Add New Product';
+        $('#productModalLabel').text('Add New Product');
+        const modal = new bootstrap.Modal(document.getElementById('productModal'));
+        modal.show();
     });
 
     // Handle select all checkbox
@@ -320,32 +546,72 @@ function initializeProductManagement() {
         const selectedProducts = document.querySelectorAll('.product-checkbox:checked');
         
         if (selectedProducts.length === 0) {
-            alert('Please select products to delete.');
+            Swal.fire({
+                icon: 'warning',
+                title: 'No Selection',
+                text: 'Please select products to delete.',
+                confirmButtonText: 'OK'
+            });
             return;
         }
 
-        if (confirm(`Are you sure you want to delete ${selectedProducts.length} product(s)? This action cannot be undone.`)) {
-            const deletePromises = [];
-            
-            Array.from(selectedProducts).forEach(checkbox => {
-                const productId = checkbox.value;
-                deletePromises.push($.ajax({
-                    url: `http://localhost:8080/api/v1/product/${productId}`,
-                    type: 'DELETE'
-                }));
-            });
-
-            $.when.apply($, deletePromises)
-                .done(function() {
-                    alert('Selected products deleted successfully.');
-                    productsTable.ajax.reload();
-                    document.getElementById('selectAll').checked = false;
-                })
-                .fail(function() {
-                    console.error('Error:', arguments);
-                    alert('Error deleting products.');
+        Swal.fire({
+            title: 'Confirm Bulk Delete',
+            text: `Are you sure you want to delete ${selectedProducts.length} product(s)? This action cannot be undone.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete them!',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Show loading
+                Swal.fire({
+                    title: 'Deleting Products...',
+                    text: 'Please wait while we delete the selected products.',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
                 });
-        }
+
+                const deletePromises = [];
+                
+                Array.from(selectedProducts).forEach(checkbox => {
+                    const productId = checkbox.value;
+                    deletePromises.push($.ajax({
+                        url: `http://localhost:8080/api/v1/product/${productId}`,
+                        type: 'DELETE'
+                    }));
+                });
+
+                $.when.apply($, deletePromises)
+                    .done(function() {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success!',
+                            text: 'Selected products deleted successfully.',
+                            confirmButtonText: 'OK',
+                            timer: 3000,
+                            timerProgressBar: true
+                        });
+                        productsTable.ajax.reload();
+                        document.getElementById('selectAll').checked = false;
+                    })
+                    .fail(function() {
+                        console.error('Error:', arguments);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Delete Failed',
+                            text: 'Error deleting some products. Please try again.',
+                            confirmButtonText: 'OK'
+                        });
+                    });
+            }
+        });
     });
 
     // Populate category filter
@@ -385,29 +651,39 @@ function initializeProductManagement() {
         // Remove the custom filter after drawing
         $.fn.dataTable.ext.search.pop();
     });
+
+    // Handle remove gallery image preview
+    $(document).on('click', '.remove-gallery-preview', function() {
+        $(this).closest('.position-relative').remove();
+        
+        // Check if gallery is empty
+        const galleryContainer = $('#galleryPreview');
+        if (galleryContainer.children().length === 0) {
+            $('#emptyGalleryMessage').show();
+        }
+    });
 }
 
 function resetForm() {
     document.getElementById('productForm').reset();
     document.getElementById('productId').value = '';
-    document.getElementById('imagePreview').style.display = 'none';
+    
+    // Hide image previews
+    document.getElementById('mainImagePreview').style.display = 'none';
+    document.getElementById('galleryPreview').innerHTML = '';
+    document.getElementById('emptyGalleryMessage').style.display = 'block';
+    
+    // Reset category dropdown
+    $('#productCategory').val('');
 }
 
 function populateCategoryFilter() {
-    // Get unique categories from the DataTable data
-    const categories = new Set();
-    productsTable.data().each(function(row) {
-        if (row.category_name) {
-            categories.add(row.category_name);
-        }
-    });
-    
-    // Populate the category filter dropdown
-    const categoryFilter = document.getElementById('categoryFilter');
-    categories.forEach(category => {
-        const option = document.createElement('option');
-        option.value = category;
-        option.textContent = category;
-        categoryFilter.appendChild(option);
-    });
-} 
+    // This function should be called after DataTable is initialized
+    // You may need to implement this based on your data structure
+}
+
+// Function to remove main image
+function removeMainImage() {
+    document.getElementById('mainProductImage').value = '';
+    document.getElementById('mainImagePreview').style.display = 'none';
+}

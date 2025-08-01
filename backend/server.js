@@ -33,10 +33,11 @@ testDb.connect((err) => {
     }
 });
 
-const productRoute = require('./routes/products')
-const dashboardRoute = require('./routes/dashboard')
-const userRoute = require('./routes/users')
-const orderRoute = require('./routes/orders')
+// Routes
+const productRoute = require('./routes/products');
+const dashboardRoute = require('./routes/dashboard');
+const userRoute = require('./routes/users');
+const orderRoute = require('./routes/orders');
 
 // Middleware
 app.use(express.json());
@@ -55,15 +56,15 @@ app.use((req, res, next) => {
 });
 
 // Serve static files (uploaded images)
-app.use('/storage', express.static(path.join(__dirname, 'storage')));
+app.use(`/${config.UPLOAD_PATH}`, express.static(path.join(__dirname, config.UPLOAD_PATH)));
 
-// Routes
+// API Routes
 app.use('/api/v1/product', productRoute);
 app.use('/api/v1/user', userRoute);
 app.use('/api/v1/order', orderRoute);
 app.use('/api/v1/dashboard', dashboardRoute);
 
-
+// Start server
 app.listen(port, host, () => {
     console.log(`✅ Server running on http://${host}:${port}`);
     console.log(`🌐 Accessible from any network interface`);
@@ -71,6 +72,8 @@ app.listen(port, host, () => {
     console.log(`   - http://localhost:${port}/api/v1/product`);
     console.log(`   - http://localhost:${port}/api/v1/user`);
     console.log(`   - http://localhost:${port}/api/v1/order`);
-    console.log(`📁 Static files served from: /storage`);
+    console.log(`📁 Static files served from: /${config.UPLOAD_PATH}`);
     console.log(`🔧 Configuration loaded from .env file`);
 });
+
+module.exports = config;

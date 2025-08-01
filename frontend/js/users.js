@@ -9,7 +9,7 @@ function initializeUserManagement() {
         ajax: {
             url: 'http://localhost:8080/api/v1/user',
             dataSrc: '',
-            error: function(xhr, error, thrown) {
+            error: function (xhr, error, thrown) {
                 console.error('DataTable error:', error);
                 alert('Error loading users. Please refresh the page.');
             }
@@ -17,34 +17,34 @@ function initializeUserManagement() {
         columns: [
             {
                 data: null,
-                render: function(data, type, row) {
+                render: function (data, type, row) {
                     return `<input type="checkbox" class="user-checkbox" value="${row.user_id}">`;
                 },
                 orderable: false,
                 searchable: false
             },
-            { 
+            {
                 data: 'user_id',
                 title: 'ID'
             },
-            { 
+            {
                 data: 'name',
                 title: 'Name',
-                render: function(data, type, row) {
-                    const imageHtml = row.img ? 
-                        `<img src="/${row.img}" alt="${data}" class="user-avatar me-2" style="width: 32px; height: 32px; object-fit: cover; border-radius: 50%;">` : 
+                render: function (data, type, row) {
+                    const imageHtml = row.img ?
+                        `<img src="/${row.img}" alt="${data}" class="user-avatar me-2" style="width: 32px; height: 32px; object-fit: cover; border-radius: 50%;">` :
                         '<div class="user-avatar me-2 bg-light d-inline-block text-center" style="width: 32px; height: 32px; line-height: 32px; color: #ccc; border-radius: 50%;"><i class="bi bi-person"></i></div>';
                     return imageHtml + `<span class="ms-2">${data}</span>`;
                 }
             },
-            { 
+            {
                 data: 'email',
                 title: 'Email'
             },
-            { 
+            {
                 data: 'role',
                 title: 'Role',
-                render: function(data) {
+                render: function (data) {
                     const role = data || 'user';
                     let badgeClass = 'badge bg-secondary';
                     if (role === 'admin') {
@@ -55,24 +55,20 @@ function initializeUserManagement() {
                     return `<span class="${badgeClass}">${role}</span>`;
                 }
             },
-            { 
+            {
                 data: 'status',
                 title: 'Status',
-                render: function(data) {
-                    const status = data || 'active';
-                    let badgeClass = 'badge bg-success';
-                    if (status === 'inactive') {
-                        badgeClass = 'badge bg-secondary';
-                    } else if (status === 'suspended') {
-                        badgeClass = 'badge bg-danger';
-                    }
-                    return `<span class="${badgeClass}">${status}</span>`;
+                render: function (data) {
+                    const isActive = parseInt(data) === 1;
+                    const statusText = isActive ? 'Active' : 'Inactive';
+                    const badgeClass = isActive ? 'badge bg-success' : 'badge bg-secondary';
+                    return `<span class="${badgeClass}">${statusText}</span>`;
                 }
             },
-            { 
+            {
                 data: 'created_at',
                 title: 'Joined',
-                render: function(data) {
+                render: function (data) {
                     if (!data) return 'N/A';
                     return new Date(data).toLocaleDateString();
                 }
@@ -80,7 +76,7 @@ function initializeUserManagement() {
             {
                 data: null,
                 title: 'Actions',
-                render: function(data, type, row) {
+                render: function (data, type, row) {
                     return `
                         <div class="btn-group" role="group">
                             <button class="btn btn-sm btn-outline-primary edit-user" data-id="${row.user_id}" title="Edit">
@@ -109,7 +105,7 @@ function initializeUserManagement() {
             emptyTable: "No users found",
             zeroRecords: "No matching users found"
         },
-        drawCallback: function(settings) {
+        drawCallback: function (settings) {
             // Update select all checkbox state
             const allCheckboxes = $('.user-checkbox');
             const checkedCheckboxes = $('.user-checkbox:checked');
@@ -118,21 +114,26 @@ function initializeUserManagement() {
         }
     });
 
-    // Handle form submission
-    document.getElementById('saveAccount').addEventListener('click', function() {
+    // Save Account Handler - FIXED
+    document.getElementById('saveAccount').addEventListener('click', function () {
+        const saveBtn = this;
+        const originalHtml = saveBtn.innerHTML; // Store original HTML instead of text
+
         const formData = new FormData();
-        const userId = document.getElementById('accountId').value;
-        const firstName = document.getElementById('firstName').value.trim();
-        const lastName = document.getElementById('lastName').value.trim();
+        const userId = document.getElementById('user_id').value;
+        const fullName = document.getElementById('name').value.trim();
         const email = document.getElementById('email').value.trim();
-        const phone = document.getElementById('phone').value.trim();
+        const phone = document.getElementById('contact').value.trim();
+        const city = document.getElementById('city').value;
         const password = document.getElementById('password').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
-        const role = document.getElementById('accountRole').value;
-        const status = document.getElementById('accountStatus').value;
+        const role = document.getElementById('role').value;
+        const status = document.getElementById('is_active').value;
+        const imageFileInput = document.getElementById('userImage');
+        const imageFile = imageFileInput?.files[0] || null;
 
-        // Validate required fields
-        if (!firstName || !lastName || !email) {
+        // Validation
+        if (!fullName || !email) {
             alert('Please fill in all required fields.');
             return;
         }
@@ -142,23 +143,23 @@ function initializeUserManagement() {
             return;
         }
 
-        // Show loading state
-        const saveBtn = this;
-        const originalText = saveBtn.innerHTML;
-        saveBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Saving...';
+        // Disable button and show spinner
         saveBtn.disabled = true;
+        saveBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Saving...`;
 
-        formData.append('name', `${firstName} ${lastName}`);
+        // Append form data
+        formData.append('name', fullName);
         formData.append('email', email);
         formData.append('contact', phone);
-        formData.append('city', 'Default'); // You might want to add a city field
-        if (password) {
-            formData.append('password', password);
-        }
+        formData.append('city', city);
         formData.append('role', role);
-        formData.append('status', status);
+        formData.append('is_active', status);
+        if (password) formData.append('password', password);
+        if (imageFile) formData.append('image', imageFile);
 
-        const url = userId ? `http://localhost:8080/api/v1/user/${userId}` : 'http://localhost:8080/api/v1/user';
+        const url = userId
+            ? `http://localhost:8080/api/v1/user/${userId}`
+            : `http://localhost:8080/api/v1/user`;
         const method = userId ? 'PUT' : 'POST';
 
         $.ajax({
@@ -167,86 +168,122 @@ function initializeUserManagement() {
             data: formData,
             processData: false,
             contentType: false,
-            success: function(data) {
+            success: function (data) {
                 if (data.msg) {
                     alert(data.msg);
-                    if (data.msg.includes('successfully')) {
-                        // Close modal and refresh table
-                        const modal = bootstrap.Modal.getInstance(document.getElementById('accountModal'));
-                        modal.hide();
+                    if (data.msg.toLowerCase().includes('successfully')) {
+                        const modalEl = document.getElementById('accountModal');
+                        const modal = bootstrap.Modal.getInstance(modalEl);
+                        modal?.hide();
                         usersTable.ajax.reload();
                         resetForm();
                     }
                 }
             },
-            error: function(xhr, status, error) {
+            error: function (xhr, status, error) {
                 console.error('Error:', error);
                 let errorMessage = 'An error occurred while saving the user.';
-                
-                if (xhr.responseJSON && xhr.responseJSON.msg) {
+                if (xhr.responseJSON?.msg) {
                     errorMessage = xhr.responseJSON.msg;
                 }
-                
                 alert(errorMessage);
             },
-            complete: function() {
-                // Reset button state
-                saveBtn.innerHTML = originalText;
+            complete: function () {
+                // Reset button state - FIXED: Use innerHTML instead of textContent
                 saveBtn.disabled = false;
+                saveBtn.innerHTML = originalHtml;
             }
         });
     });
 
-    // Handle edit user
-    $(document).on('click', '.edit-user', function() {
+    // Edit User Handler - Also updated
+    $(document).on('click', '.edit-user', function () {
         const userId = $(this).data('id');
-        
-        // Show loading state
         $(this).prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
-        
+
         $.ajax({
             url: `http://localhost:8080/api/v1/user/${userId}`,
             type: 'GET',
-            success: function(data) {
+            success: function (data) {
                 if (data.user) {
                     const user = data.user;
-                    const nameParts = user.name ? user.name.split(' ') : ['', ''];
-                    
-                    document.getElementById('accountId').value = user.user_id;
-                    document.getElementById('firstName').value = nameParts[0] || '';
-                    document.getElementById('lastName').value = nameParts.slice(1).join(' ') || '';
+
+                    document.getElementById('user_id').value = user.user_id;
+                    document.getElementById('name').value = user.name || '';
                     document.getElementById('email').value = user.email || '';
-                    document.getElementById('phone').value = user.contact || '';
-                    document.getElementById('accountRole').value = user.role || 'user';
-                    document.getElementById('accountStatus').value = user.status || 'active';
-                    
-                    // Clear password fields for edit
+                    document.getElementById('contact').value = user.contact || '';
+                    document.getElementById('city').value = user.city || '';
+                    document.getElementById('role').value = user.role || 'user';
+                    document.getElementById('is_active').value = (user.is_active ?? '1').toString();
+
                     document.getElementById('password').value = '';
                     document.getElementById('confirmPassword').value = '';
-                    
+
+                    // Show existing image preview if available
+                    const previewImg = document.getElementById('previewImg');
+                    const previewContainer = document.getElementById('imagePreview');
+
+                    if (user.img) {
+                        // Assumes user.img = 'filename.jpg'
+                        previewImg.src = `http://localhost:8080/${user.img}`;
+                        previewContainer.style.display = 'block';
+                    } else {
+                        previewImg.src = '#';
+                        previewContainer.style.display = 'none';
+                    }
+
                     document.getElementById('accountModalLabel').textContent = 'Edit Account';
                     const modal = new bootstrap.Modal(document.getElementById('accountModal'));
                     modal.show();
                 }
             },
-            error: function(xhr, status, error) {
+            error: function (xhr, status, error) {
                 console.error('Error:', error);
                 alert('Error loading user details.');
             },
-            complete: function() {
-                // Reset button state
+            complete: function () {
                 $('.edit-user[data-id="' + userId + '"]').prop('disabled', false).html('<i class="bi bi-pencil"></i>');
             }
         });
     });
 
+    // Image preview on file selection
+    document.getElementById('userImage').addEventListener('change', function () {
+        const file = this.files[0];
+        const previewImg = document.getElementById('previewImg');
+        const previewContainer = document.getElementById('imagePreview');
+
+        if (file && previewImg && previewContainer) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                previewImg.src = e.target.result;
+                previewContainer.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        } else {
+            previewImg.src = '#';
+            previewContainer.style.display = 'none';
+        }
+    });
+
+    // Remove preview image
+    document.getElementById('removeImage').addEventListener('click', function () {
+        const imageInput = document.getElementById('userImage');
+        const previewImg = document.getElementById('previewImg');
+        const previewContainer = document.getElementById('imagePreview');
+
+        imageInput.value = '';
+        previewImg.src = '#';
+        previewContainer.style.display = 'none';
+    });
+
     // Handle delete user
-    $(document).on('click', '.delete-user', function() {
+    $(document).on('click', '.delete-user', function () {
         const userId = $(this).data('id');
         const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
         deleteModal.show();
         
-        document.getElementById('confirmDelete').onclick = function() {
+        document.getElementById('confirmDelete').onclick = function () {
             // Show loading state
             const confirmBtn = this;
             const originalText = confirmBtn.innerHTML;
@@ -256,14 +293,14 @@ function initializeUserManagement() {
             $.ajax({
                 url: `http://localhost:8080/api/v1/user/${userId}`,
                 type: 'DELETE',
-                success: function(data) {
+                success: function (data) {
                     alert(data.msg);
                     if (data.msg.includes('successfully')) {
                         usersTable.ajax.reload();
                     }
                     deleteModal.hide();
                 },
-                error: function(xhr, status, error) {
+                error: function (xhr, status, error) {
                     console.error('Error:', error);
                     let errorMessage = 'Error deleting user.';
                     
@@ -273,7 +310,7 @@ function initializeUserManagement() {
                     
                     alert(errorMessage);
                 },
-                complete: function() {
+                complete: function () {
                     // Reset button state
                     confirmBtn.innerHTML = originalText;
                     confirmBtn.disabled = false;
@@ -283,13 +320,13 @@ function initializeUserManagement() {
     });
 
     // Handle add new user
-    document.getElementById('addAccountBtn').addEventListener('click', function() {
+    document.getElementById('addAccountBtn').addEventListener('click', function () {
         resetForm();
         document.getElementById('accountModalLabel').textContent = 'Add New Account';
     });
 
     // Handle select all checkbox
-    document.getElementById('selectAll').addEventListener('change', function() {
+    document.getElementById('selectAll').addEventListener('change', function () {
         const checkboxes = document.querySelectorAll('.user-checkbox');
         Array.from(checkboxes).forEach(checkbox => {
             checkbox.checked = this.checked;
@@ -297,85 +334,126 @@ function initializeUserManagement() {
     });
 
     // Handle bulk actions
-    document.getElementById('bulkActivate').addEventListener('click', function(e) {
+    document.getElementById('bulkActivate').addEventListener('click', function (e) {
         e.preventDefault();
         performBulkAction('activate');
     });
 
-    document.getElementById('bulkDeactivate').addEventListener('click', function(e) {
+    document.getElementById('bulkDeactivate').addEventListener('click', function (e) {
         e.preventDefault();
         performBulkAction('deactivate');
     });
 
-    document.getElementById('bulkDelete').addEventListener('click', function(e) {
+    document.getElementById('bulkDelete').addEventListener('click', function (e) {
         e.preventDefault();
         const selectedUsers = document.querySelectorAll('.user-checkbox:checked');
-        
+
         if (selectedUsers.length === 0) {
-            alert('Please select users to delete.');
+            Swal.fire('No Selection', 'Please select users to delete.', 'warning');
             return;
         }
 
-        if (confirm(`Are you sure you want to delete ${selectedUsers.length} user(s)? This action cannot be undone.`)) {
-            const deletePromises = [];
-            
-            Array.from(selectedUsers).forEach(checkbox => {
-                const userId = checkbox.value;
-                deletePromises.push($.ajax({
-                    url: `http://localhost:8080/api/v1/user/${userId}`,
-                    type: 'DELETE'
-                }));
-            });
+        const userIds = Array.from(selectedUsers).map(cb => cb.value);
 
-            $.when.apply($, deletePromises)
-                .done(function() {
-                    alert('Selected users deleted successfully.');
-                    usersTable.ajax.reload();
-                    document.getElementById('selectAll').checked = false;
-                })
-                .fail(function() {
-                    console.error('Error:', arguments);
-                    alert('Error deleting users.');
+        Swal.fire({
+            title: 'Confirm Bulk Delete',
+            text: `Are you sure you want to delete ${userIds.length} user(s)? This action cannot be undone.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, delete them',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: 'http://localhost:8080/api/v1/user/bulk/delete',
+                    type: 'DELETE',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ ids: userIds }),
+                    success: function (res) {
+                        Swal.fire('Deleted', res.msg || 'Users deleted successfully.', 'success');
+                        $('#accountsTable').DataTable().ajax.reload();
+                        document.getElementById('selectAll').checked = false;
+                    },
+                    error: function (xhr) {
+                        Swal.fire('Error', 'Error deleting users.', 'error');
+                        console.error('Bulk delete error:', xhr);
+                    }
                 });
-        }
+            }
+        });
     });
 
     // Handle filters
-    $('#roleFilter').on('change', function() {
+    $('#roleFilter').on('change', function () {
         const selectedRole = $(this).val();
         usersTable.column(4).search(selectedRole).draw();
     });
 
-    $('#statusFilter').on('change', function() {
+    $('#statusFilter').on('change', function () {
         const selectedStatus = $(this).val();
         usersTable.column(5).search(selectedStatus).draw();
     });
 
-    $('#dateFilter').on('change', function() {
+    $('#dateFilter').on('change', function () {
         const selectedDate = $(this).val();
         // Custom date filtering logic can be implemented here
         usersTable.draw();
     });
-}
 
-function resetForm() {
-    document.getElementById('accountForm').reset();
-    document.getElementById('accountId').value = '';
-}
-
-function performBulkAction(action) {
-    const selectedUsers = document.querySelectorAll('.user-checkbox:checked');
-    
-    if (selectedUsers.length === 0) {
-        alert('Please select users to perform this action.');
-        return;
+    function resetForm() {
+        document.getElementById('accountForm').reset();
+        // Fixed: Use correct ID for user_id field
+        const userIdField = document.getElementById('user_id');
+        if (userIdField) {
+            userIdField.value = '';
+        }
+        
+        // Also reset image preview
+        const previewImg = document.getElementById('previewImg');
+        const previewContainer = document.getElementById('imagePreview');
+        if (previewImg && previewContainer) {
+            previewImg.src = '#';
+            previewContainer.style.display = 'none';
+        }
     }
 
-    const actionText = action === 'activate' ? 'activate' : 'deactivate';
-    if (confirm(`Are you sure you want to ${actionText} ${selectedUsers.length} user(s)?`)) {
-        // Implement bulk status update logic here
-        alert(`Bulk ${actionText} action completed.`);
-        $('#accountsTable').DataTable().ajax.reload();
-        document.getElementById('selectAll').checked = false;
+    function performBulkAction(action) {
+        const selectedUsers = document.querySelectorAll('.user-checkbox:checked');
+
+        if (selectedUsers.length === 0) {
+            Swal.fire('No Selection', 'Please select users to perform this action.', 'warning');
+            return;
+        }
+
+        const status = action === 'activate' ? 1 : 0;
+        const userIds = Array.from(selectedUsers).map(cb => cb.value);
+        const actionText = action === 'activate' ? 'activate' : 'deactivate';
+
+        Swal.fire({
+            title: `Confirm Bulk ${actionText}`,
+            text: `Are you sure you want to ${actionText} ${userIds.length} user(s)?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: `Yes, ${actionText}`,
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: 'http://localhost:8080/api/v1/user/bulk/status',
+                    type: 'PUT',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ ids: userIds, status: status }),
+                    success: function(res) {
+                        Swal.fire('Success', res.msg || 'Bulk status update successful.', 'success');
+                        $('#accountsTable').DataTable().ajax.reload();
+                        document.getElementById('selectAll').checked = false;
+                    },
+                    error: function(xhr) {
+                        Swal.fire('Error', 'An error occurred while updating statuses.', 'error');
+                        console.error('Bulk status error:', xhr);
+                    }
+                });
+            }
+        });
     }
-} 
+}
