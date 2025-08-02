@@ -38,6 +38,8 @@ const productRoute = require('./routes/products');
 const dashboardRoute = require('./routes/dashboard');
 const userRoute = require('./routes/users');
 const orderRoute = require('./routes/orders');
+const authRoute = require('./routes/auth');
+const cartRoute = require('./routes/cart');
 
 // Middleware
 app.use(express.json());
@@ -63,6 +65,8 @@ app.use('/api/v1/product', productRoute);
 app.use('/api/v1/user', userRoute);
 app.use('/api/v1/order', orderRoute);
 app.use('/api/v1/dashboard', dashboardRoute);
+app.use('/api/v1/auth', authRoute);
+app.use('/api/v1/cart', cartRoute);
 
 // Start server
 app.listen(port, host, () => {
@@ -76,4 +80,3 @@ app.listen(port, host, () => {
     console.log(`🔧 Configuration loaded from .env file`);
 });
 
-module.exports = config;

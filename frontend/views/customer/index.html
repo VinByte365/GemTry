@@ -6,33 +6,86 @@
     <title>GemTry - Luxury Jewelry Collections</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../css/customer/homepage.css">
 </head>
 <body>
     <!-- Header/Navbar -->
-    <header>
+    <header id="header">
         <div class="navbar">
             <div class="logo">GemTry</div>
-            <div class="nav-links">
+            
+            <div class="mobile-menu-toggle" id="mobileToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            
+            <div class="nav-links" id="navLinks">
                 <a href="#">Home</a>
                 <a href="#">Shop</a>
                 <a href="#">Collections</a>
             </div>
-            <div class="nav-icons">
-                <i class="fas fa-search"></i>
-                <i class="fas fa-user"></i>
-                <i class="fas fa-shopping-bag"></i>
+            
+            <!-- Guest Navigation (default) -->
+            <div class="nav-icons" id="guestNav">
+                <i class="fas fa-search" title="Search"></i>
+                <a href="../index.html" class="login-btn" id="loginBtn">Login</a>
+                <div class="cart-badge">
+                    <i class="fas fa-shopping-bag" title="Shopping Cart"></i>
+                    <span class="cart-count hidden" id="cartCount">0</span>
+                </div>
+            </div>
+
+            <!-- User Navigation (when logged in) -->
+            <div class="user-nav hidden" id="userNav">
+                <div class="user-welcome">
+                    <span>Welcome back,</span>
+                    <span id="userName">John</span>
+                </div>
+                <i class="fas fa-search" title="Search"></i>
+                <div class="cart-badge">
+                    <i class="fas fa-shopping-bag" title="Shopping Cart"></i>
+                    <span class="cart-count" id="userCartCount">3</span>
+                </div>
+                <i class="fas fa-heart" title="Wishlist"></i>
+                <div class="user-dropdown">
+                    <div class="user-avatar" id="userAvatar">J</div>
+                    <div class="dropdown-menu" id="dropdownMenu">
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-user"></i>
+                            My Profile
+                        </a>
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-box"></i>
+                            My Orders
+                        </a>
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-heart"></i>
+                            Wishlist
+                        </a>
+                        <a href="#" class="dropdown-item">
+                            <i class="fas fa-cog"></i>
+                            Settings
+                        </a>
+                        <a href="#" class="dropdown-item" id="logoutBtn">
+                            <i class="fas fa-sign-out-alt"></i>
+                            Logout
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     </header>
 
     <!-- Hero Section -->
     <section class="hero">
-        <h1>Timeless Elegance, Crafted for You</h1>
-        <p>Discover our exclusive collection of handcrafted jewelry pieces that tell your unique story.</p>
-        <button class="cta-button">SHOP THE COLLECTION</button>
+        <div class="hero-content">
+            <h1>Timeless Elegance, Crafted for You</h1>
+            <p>Discover our exclusive collection of handcrafted jewelry pieces that tell your unique story with unparalleled luxury and sophistication.</p>
+            <button class="cta-button">Shop the Collection</button>
+        </div>
     </section>
 
     <!-- Categories Section -->
@@ -43,93 +96,57 @@
                 <img src="https://images.unsplash.com/photo-1603974372035-96e0fdf2149b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80" alt="Necklaces">
                 <div class="category-overlay">
                     <h3>Necklaces</h3>
-                    <p>Elegant pieces for every occasion</p>
+                    <p>Elegant pieces for every occasion that complement your natural beauty</p>
                 </div>
             </div>
             <div class="category-card">
                 <img src="https://images.unsplash.com/photo-1602173574767-37ac01994b2a?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80" alt="Rings">
                 <div class="category-overlay">
                     <h3>Rings</h3>
-                    <p>Symbols of love and commitment</p>
+                    <p>Symbols of love and commitment crafted with precision and care</p>
                 </div>
             </div>
             <div class="category-card">
                 <img src="https://images.unsplash.com/photo-1605100804763-247f67b3557e?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80" alt="Bracelets">
                 <div class="category-overlay">
                     <h3>Bracelets</h3>
-                    <p>Delicate adornments for your wrist</p>
+                    <p>Delicate adornments that grace your wrist with timeless style</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Featured Products -->
+     <!-- Featured Products Section (modified) -->
     <section class="featured">
         <h2 class="section-title">Featured Pieces</h2>
-        <div class="product-grid">
-            <div class="product-card">
-                <div class="product-image">
-                    <img src="https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80" alt="Diamond Ring">
-                </div>
-                <div class="product-info">
-                    <h3 class="product-name">Eternal Diamond Ring</h3>
-                    <p class="product-price">₱1,850</p>
-                    <button class="add-to-cart">ADD TO CART</button>
-                </div>
-            </div>
-            <div class="product-card">
-                <div class="product-image">
-                    <img src="https://images.unsplash.com/photo-1611591437281-4608be122683?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80" alt="Gold Necklace">
-                </div>
-                <div class="product-info">
-                    <h3 class="product-name">Golden Harmony Necklace</h3>
-                    <p class="product-price">₱2,450</p>
-                    <button class="add-to-cart">ADD TO CART</button>
-                </div>
-            </div>
-            <div class="product-card">
-                <div class="product-image">
-                    <img src="https://images.unsplash.com/photo-1602173574767-37ac01994b2a?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80" alt="Sapphire Ring">
-                </div>
-                <div class="product-info">
-                    <h3 class="product-name">Sapphire Dream Ring</h3>
-                    <p class="product-price">₱3,200</p>
-                    <button class="add-to-cart">ADD TO CART</button>
-                </div>
-            </div>
-            <div class="product-card">
-                <div class="product-image">
-                    <img src="https://images.unsplash.com/photo-1611594605321-5c6b7b7b8b0b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80" alt="Pearl Bracelet">
-                </div>
-                <div class="product-info">
-                    <h3 class="product-name">Pearl Elegance Bracelet</h3>
-                    <p class="product-price">₱1,250</p>
-                    <button class="add-to-cart">ADD TO CART</button>
-                </div>
-            </div>
+        <div class="product-grid" id="productGrid">
+            <!-- Products will be loaded here by JavaScript -->
         </div>
     </section>
+
+    <!-- Product Detail Modal -->
+    <div class="product-modal" id="productModal">
+        <div class="modal-content">
+            <span class="modal-close" id="modalClose">&times;</span>
+            <div class="product-detail" id="productDetail">
+                <!-- Content will be loaded here by JavaScript -->
+            </div>
+        </div>
+    </div>
 
     <!-- Footer -->
     <footer>
         <div class="footer-content">
             <div class="footer-column">
                 <h3>GemTry</h3>
-                <p>Crafting timeless jewelry pieces since 2015. Each creation tells a story of elegance and passion.</p>
+                <p>Crafting timeless jewelry pieces. Each creation tells a story of elegance, passion, and uncompromising quality that speaks to the heart.</p>
             </div>
-            <div class="footer-column">
-                <h3>Shop</h3>
-                <ul>
-                    <li><a href="#">Necklaces</a></li>
-                    <li><a href="#">Rings</a></li>
-                    <li><a href="#">Bracelets</a></li>
-                </ul>
-            </div>
-            
         </div>
         <div class="copyright">
-            <p>&copy; 2023 GemTry Jewelry. All rights reserved.</p>
+            <p>&copy; 2025 GemTry Jewelry. All rights reserved. | Crafted with passion in the Philippines</p>
         </div>
     </footer>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="../../js/customer/homepage.js"></script>
 </body>
-</html>
