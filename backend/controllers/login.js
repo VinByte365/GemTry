@@ -77,7 +77,7 @@ exports.login = async (req, res) => {
         }
 
         // Generate token
-        let token = generateToken(user.id);
+        let token = generateToken(user);
         try {
             const tokenSQL = 'UPDATE user SET token = ? WHERE user_id = ?';
             const [result] = await db.promise().execute(tokenSQL, [token, user.user_id])

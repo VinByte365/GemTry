@@ -11,7 +11,7 @@ exports.isAuthenticatedUser = (req, res, next) => {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = { id: decoded.id }; // Store in req.user, not req.body
+        req.user = { id: decoded.id, role: decoded.role };
         next();
     } catch (error) {
         return res.status(401).json({ message: 'Invalid or expired token' });

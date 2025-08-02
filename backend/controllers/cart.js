@@ -3,8 +3,23 @@ const db = require('../config/database');
 // Add item to cart
 exports.addToCart = async (req, res) => {
     try {
+        console.log('req.user:', req.user);
         const { item_id, quantity } = req.body;
-        const user_id = req.user.id; // Assuming user info is in request from auth middleware
+
+        if (!item_id || !quantity) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing required fields: item_id and quantity are required.'
+            });
+        }
+
+        const user_id = req.user?.id;
+        if (!user_id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized. User not authenticated.'
+            });
+        }
 
         // Check if item already exists in cart
         const [existingItem] = await db.query(
@@ -37,11 +52,25 @@ exports.addToCart = async (req, res) => {
             message: 'Item added to cart successfully',
             cartCount: cartCount[0].count || 0
         });
+
     } catch (error) {
-        console.error('Add to cart error:', error);
-        res.status(500).json({
+        console.error('❌ Add to cart error:', {
+            message: error.message,
+            stack: error.stack,
+            code: error.code || 'N/A'
+        });
+
+        let statusCode = 500;
+        let errorMessage = 'Something went wrong while adding the item to the cart.';
+
+        if (error.code === 'ER_DUP_ENTRY') {
+            statusCode = 409;
+            errorMessage = 'This item is already in the cart.';
+        }
+
+        res.status(statusCode).json({
             success: false,
-            message: 'Failed to add item to cart',
+            message: errorMessage,
             error: error.message
         });
     }

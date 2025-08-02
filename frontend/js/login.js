@@ -91,7 +91,9 @@ $('#toggleSigninPassword').on('click', function () {
         });
 
         sessionStorage.setItem('authToken', response.token);
-        sessionStorage.setItem('userRole', response.user.role);
+        sessionStorage.setItem('role', response.user.role);
+        sessionStorage.setItem('name', response.user.name);
+        sessionStorage.setItem('initial', response.user.name.trim().charAt(0).toUpperCase());
 
         setTimeout(() => {
           if (response.user.role === 'admin') {

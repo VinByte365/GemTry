@@ -4,6 +4,84 @@ $(document).ready(function () {
     const productDetail = $('#productDetail');
     const modalClose = $('#modalClose');
 
+
+ function checkAuthStatus() {
+        const authToken = sessionStorage.getItem('authToken');
+        const userName = sessionStorage.getItem('name');
+        const userInitial = sessionStorage.getItem('initial');
+        
+        if (authToken) {
+            // User is logged in
+            $('#guestNav').addClass('hidden');
+            $('#userNav').removeClass('hidden');
+            
+            // Set user information if available
+            if (userName) {
+                $('#userName').text(userName);
+            }
+            if (userInitial) {
+                $('#userAvatar').text(userInitial);
+            }
+            
+            // Fetch cart count for logged-in user
+            fetchCartCount();
+        } else {
+            // User is not logged in
+            $('#guestNav').removeClass('hidden');
+            $('#userNav').addClass('hidden');
+        }
+    }
+
+    // Fetch cart count for authenticated user
+    function fetchCartCount() {
+        $.ajax({
+            url: 'http://localhost:8080/api/v1/cart/count',
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+            },
+            success: function(response) {
+                $('.cart-count').text(response.count).removeClass('hidden');
+            },
+            error: function(xhr) {
+                console.error('Failed to fetch cart count:', xhr.responseText);
+                $('.cart-count').addClass('hidden');
+            }
+        });
+    }
+
+    // Handle logout
+    $('#logoutBtn').on('click', function(e) {
+        e.preventDefault();
+        
+        // Clear session storage
+        sessionStorage.removeItem('authToken');
+        sessionStorage.removeItem('role');
+        sessionStorage.removeItem('name');
+        sessionStorage.removeItem('initial');
+        
+        // Update UI
+        checkAuthStatus();
+        
+        // Optional: Notify user
+        alert('You have been logged out successfully');
+    });
+
+    // Initialize dropdown menu toggle
+    $('#userAvatar').on('click', function() {
+        $('#dropdownMenu').toggleClass('active');
+    });
+
+    // Close dropdown when clicking outside
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('.user-dropdown').length) {
+            $('#dropdownMenu').removeClass('active');
+        }
+    });
+
+    // Check auth status when page loads
+    checkAuthStatus();
+    
     // Fetch and render products
     function renderProducts() {
         $.ajax({
@@ -263,6 +341,10 @@ $(document).ready(function () {
             $.ajax({
                 url: 'http://localhost:8080/api/v1/cart/add',
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+                },
                 data: JSON.stringify({
                     item_id: productId,
                     quantity: quantity
@@ -386,3 +468,4 @@ $(document).ready(function () {
     // Initialize the application
     renderProducts();
 });
+
