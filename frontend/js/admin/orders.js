@@ -1,4 +1,4 @@
-// Optimized Order Management JavaScript with SweetAlert
+// Optimized Order Management JavaScript with Fixed Infinite Scroll
 document.addEventListener('DOMContentLoaded', function() {
     initializeOrderManagement();
 });
@@ -11,42 +11,46 @@ const CONFIG = {
         shipped: { class: 'bg-info', icon: 'truck' },
         delivered: { class: 'bg-success', icon: 'check-circle' },
         cancelled: { class: 'bg-danger', icon: 'x-circle' }
+    },
+    infiniteScroll: {
+        pageSize: 20,
+        currentPage: 1,
+        loading: false,
+        hasMore: true,
+        threshold: 200, // pixels from bottom to trigger load
+        totalRecords: 0, // Track total available records
+        lastScrollPosition: 0 // Prevent duplicate triggers
     }
 };
 
 let ordersTable;
+let allOrders = []; // Store all loaded orders
+let filteredOrders = []; // Store filtered orders
+let currentFilters = {
+    status: '',
+    date: '',
+    search: ''
+};
 
 function initializeOrderManagement() {
-    // Initialize DataTable with optimized settings
+    // Initialize DataTable with pagination disabled and infinite scroll
     ordersTable = $('#ordersTable').DataTable({
-        ajax: {
-            url: CONFIG.apiBaseUrl,
-            dataSrc: '',
-            headers: {
-            'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
-        },
-            error: function(xhr, error, thrown) {
-                console.error('DataTable error:', error);
-                showErrorAlert('Failed to load orders', 'Please refresh the page to try again.');
-            }
-        },
+        data: [], // Start with empty data
         columns: getTableColumns(),
         order: [[1, 'desc']],
         responsive: true,
-        pageLength: 10,
-        lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
+        paging: false, // Disable pagination
+        scrollY: '60vh', // Set fixed height for scrolling
+        scrollCollapse: true,
+        info: false, // Disable info display
+        searching: false, // Disable built-in search (we'll handle it manually)
         language: {
-            search: "Search orders:",
-            lengthMenu: "Show _MENU_ orders per page",
-            info: "Showing _START_ to _END_ of _TOTAL_ orders",
-            infoEmpty: "No orders found",
-            infoFiltered: "(filtered from _MAX_ total orders)",
             emptyTable: "No orders available",
             zeroRecords: "No matching orders found",
             processing: "Loading orders..."
         },
-        processing: true,
-        stateSave: true,
+        processing: false,
+        stateSave: false,
         drawCallback: function() {
             updateSelectAllCheckbox();
             // Initialize tooltips for new elements
@@ -54,7 +58,224 @@ function initializeOrderManagement() {
         }
     });
 
+    // Load initial data
+    loadOrders(true);
+    
+    // Setup infinite scroll
+    setupInfiniteScroll();
+    
     bindEventHandlers();
+}
+
+function loadOrders(reset = false) {
+    // Prevent multiple simultaneous requests
+    if (CONFIG.infiniteScroll.loading) {
+        console.log('Already loading, skipping request');
+        return;
+    }
+
+    // If we've loaded all available data and this isn't a reset, don't load more
+    if (!CONFIG.infiniteScroll.hasMore && !reset) {
+        console.log('No more data to load');
+        return;
+    }
+
+    CONFIG.infiniteScroll.loading = true;
+    
+    if (reset) {
+        CONFIG.infiniteScroll.currentPage = 1;
+        CONFIG.infiniteScroll.hasMore = true;
+        CONFIG.infiniteScroll.totalRecords = 0;
+        allOrders = [];
+        showLoadingIndicator();
+    } else {
+        showLoadMoreIndicator();
+    }
+
+    // Simulate pagination parameters (adjust based on your API)
+    const params = {
+        page: CONFIG.infiniteScroll.currentPage,
+        limit: CONFIG.infiniteScroll.pageSize
+    };
+
+    console.log(`Loading page ${CONFIG.infiniteScroll.currentPage} with limit ${CONFIG.infiniteScroll.pageSize}`);
+
+    $.ajax({
+        url: CONFIG.apiBaseUrl,
+        type: 'GET',
+        data: params,
+        headers: {
+            'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+        },
+        success: function(data) {
+            console.log('API Response:', data);
+            
+            // Handle different API response formats
+            let orders = [];
+            let totalCount = 0;
+            
+            if (Array.isArray(data)) {
+                // Simple array response
+                orders = data;
+                totalCount = CONFIG.infiniteScroll.totalRecords + orders.length; // Estimate
+            } else if (data.orders) {
+                // Object with orders array
+                orders = data.orders;
+                totalCount = data.total || data.totalCount || (CONFIG.infiniteScroll.totalRecords + orders.length);
+            } else if (data.data) {
+                // Nested data structure
+                orders = data.data;
+                totalCount = data.total || data.totalCount || (CONFIG.infiniteScroll.totalRecords + orders.length);
+            }
+
+            console.log(`Received ${orders.length} orders, total available: ${totalCount}`);
+
+            if (reset) {
+                allOrders = orders;
+                CONFIG.infiniteScroll.totalRecords = totalCount;
+            } else {
+                // Check for duplicates before adding
+                const existingIds = new Set(allOrders.map(order => order.order_id));
+                const newOrders = orders.filter(order => !existingIds.has(order.order_id));
+                allOrders = allOrders.concat(newOrders);
+                console.log(`Added ${newOrders.length} new orders (filtered ${orders.length - newOrders.length} duplicates)`);
+            }
+
+            // Determine if there are more records to load
+            const loadedCount = allOrders.length;
+            
+            // Multiple conditions to determine if more data is available
+            CONFIG.infiniteScroll.hasMore = 
+                orders.length === CONFIG.infiniteScroll.pageSize && // Got full page
+                loadedCount < CONFIG.infiniteScroll.totalRecords && // Haven't loaded all records
+                orders.length > 0; // Actually received data
+
+            console.log(`Loaded: ${loadedCount}, Total: ${CONFIG.infiniteScroll.totalRecords}, HasMore: ${CONFIG.infiniteScroll.hasMore}`);
+
+            // Only increment page if we successfully loaded data
+            if (orders.length > 0) {
+                CONFIG.infiniteScroll.currentPage++;
+            }
+
+            // Apply current filters and update table
+            applyFiltersAndUpdateTable();
+            
+            hideLoadingIndicators();
+            CONFIG.infiniteScroll.loading = false;
+
+            // Update order count display
+            updateOrderCount();
+        },
+        error: function(xhr, error, thrown) {
+            console.error('Error loading orders:', error);
+            showErrorAlert('Failed to load orders', 'Please refresh the page to try again.');
+            hideLoadingIndicators();
+            CONFIG.infiniteScroll.loading = false;
+            
+            // Don't increment page on error
+            CONFIG.infiniteScroll.hasMore = false; // Stop trying on error
+        }
+    });
+}
+
+function setupInfiniteScroll() {
+    const scrollContainer = $('.dataTables_scrollBody');
+    let scrollTimeout;
+    
+    scrollContainer.on('scroll', function() {
+        const container = $(this);
+        const scrollTop = container.scrollTop();
+        const scrollHeight = container[0].scrollHeight;
+        const containerHeight = container.height();
+        
+        // Debounce scroll events
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(function() {
+            // Check if we're near the bottom and haven't moved much
+            const distanceFromBottom = scrollHeight - scrollTop - containerHeight;
+            const scrolledDown = scrollTop > CONFIG.infiniteScroll.lastScrollPosition;
+            
+            console.log(`Scroll position: ${scrollTop}, Distance from bottom: ${distanceFromBottom}, Scrolled down: ${scrolledDown}`);
+            
+            if (distanceFromBottom < CONFIG.infiniteScroll.threshold && 
+                scrolledDown && 
+                !CONFIG.infiniteScroll.loading &&
+                CONFIG.infiniteScroll.hasMore) {
+                
+                console.log('Triggering infinite scroll load');
+                CONFIG.infiniteScroll.lastScrollPosition = scrollTop;
+                loadOrders(false);
+            }
+        }, 100); // 100ms debounce
+    });
+}
+
+function applyFiltersAndUpdateTable() {
+    filteredOrders = allOrders.filter(order => {
+        let matches = true;
+
+        // Status filter
+        if (currentFilters.status && order.order_status !== currentFilters.status) {
+            matches = false;
+        }
+
+        // Search filter
+        if (currentFilters.search) {
+            const searchTerm = currentFilters.search.toLowerCase();
+            const searchableText = `${order.order_id || ''} ${order.customer_name || ''} ${order.customer_email || ''}`.toLowerCase();
+            if (!searchableText.includes(searchTerm)) {
+                matches = false;
+            }
+        }
+
+        // Date filter (implement based on your needs)
+        if (currentFilters.date && currentFilters.date !== '') {
+            // Add date filtering logic here
+            // This is a placeholder - implement based on your date filter requirements
+        }
+
+        return matches;
+    });
+
+    // Update DataTable with filtered data
+    ordersTable.clear();
+    ordersTable.rows.add(filteredOrders);
+    ordersTable.draw();
+}
+
+function showLoadingIndicator() {
+    $('#initialLoadingIndicator').show();
+}
+
+function showLoadMoreIndicator() {
+    $('#loadMoreIndicator').show();
+}
+
+function hideLoadingIndicators() {
+    $('#initialLoadingIndicator').hide();
+    $('#loadMoreIndicator').hide();
+}
+
+function updateOrderCount() {
+    const totalCount = allOrders.length;
+    const filteredCount = filteredOrders.length;
+    const totalAvailable = CONFIG.infiniteScroll.totalRecords;
+    
+    let countText = '';
+    if (currentFilters.status || currentFilters.search || currentFilters.date) {
+        countText = `Showing ${filteredCount} of ${totalCount} loaded orders`;
+    } else {
+        if (totalAvailable > totalCount) {
+            countText = `${totalCount} of ${totalAvailable} orders loaded`;
+            if (CONFIG.infiniteScroll.hasMore) {
+                countText += ' (scroll for more)';
+            }
+        } else {
+            countText = `All ${totalCount} orders loaded`;
+        }
+    }
+    
+    $('#orderCountDisplay').text(countText);
 }
 
 function getTableColumns() {
@@ -192,11 +413,37 @@ function bindEventHandlers() {
 
     // Filters
     $('#statusFilter').on('change', function() {
-        ordersTable.column(5).search($(this).val()).draw();
+        currentFilters.status = $(this).val();
+        applyFiltersAndUpdateTable();
+        updateOrderCount();
     });
 
     $('#dateFilter').on('change', function() {
+        currentFilters.date = $(this).val();
         handleDateFilter($(this).val());
+    });
+
+    // Custom search input
+    $('#orderSearch').on('input', debounce(function() {
+        currentFilters.search = $(this).val();
+        applyFiltersAndUpdateTable();
+        updateOrderCount();
+    }, 300));
+
+    // Refresh button
+    $('#refreshOrdersBtn').on('click', function() {
+        $(this).html('<i class="bi bi-arrow-clockwise spinner-border spinner-border-sm"></i> Refreshing...');
+        $(this).prop('disabled', true);
+        
+        // Reset scroll position tracking
+        CONFIG.infiniteScroll.lastScrollPosition = 0;
+        
+        loadOrders(true);
+        
+        setTimeout(() => {
+            $(this).html('<i class="bi bi-arrow-clockwise"></i> Refresh');
+            $(this).prop('disabled', false);
+        }, 1000);
     });
 
     // Export orders
@@ -219,6 +466,19 @@ function bindEventHandlers() {
         const orderId = $('#detailOrderId').text();
         cancelSingleOrder(orderId);
     });
+}
+
+// Debounce function for search input
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
 }
 
 function viewOrderDetails(orderId) {
@@ -328,7 +588,12 @@ function updateOrderStatus(orderId, newStatus) {
                 confirmButtonColor: '#198754'
             });
             
-            ordersTable.ajax.reload();
+            // Update the order in our local data
+            const orderIndex = allOrders.findIndex(order => order.order_id == orderId);
+            if (orderIndex !== -1) {
+                allOrders[orderIndex].order_status = newStatus;
+                applyFiltersAndUpdateTable();
+            }
             
             // Close modal if open
             const modal = bootstrap.Modal.getInstance(document.getElementById('orderDetailsModal'));
@@ -363,18 +628,19 @@ function performBulkAction(action, actionText) {
     }
 
     Swal.fire({
-    title: `${actionText.charAt(0).toUpperCase() + actionText.slice(1)} Orders?`,
-    text: `Are you sure you want to ${actionText} ${selectedOrders.length} order(s)?`,
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonText: `Yes, ${actionText} them!`,
-    cancelButtonText: 'Cancel',
-    confirmButtonColor: getButtonColor(action)
-}).then(function(result) {
-    if (result.isConfirmed) {
-        executeBulkAction(selectedOrders, action, actionText);
-    }
-});
+        title: `${actionText.charAt(0).toUpperCase() + actionText.slice(1)} Orders?`,
+        text: `Are you sure you want to ${actionText} ${selectedOrders.length} order(s)?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: `Yes, ${actionText} them!`,
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: getButtonColor(action)
+    }).then(function(result) {
+        if (result.isConfirmed) {
+            executeBulkAction(selectedOrders, action, actionText);
+        }
+    });
+}
 
 // Helper function to determine button color based on action
 function getButtonColor(action) {
@@ -391,7 +657,6 @@ function getButtonColor(action) {
             return '#0d6efd'; // Bootstrap primary blue (default)
     }
 }
-}
 
 function executeBulkAction(selectedOrders, action, actionText) {
     // Show progress
@@ -405,28 +670,40 @@ function executeBulkAction(selectedOrders, action, actionText) {
     });
 
     const updatePromises = [];
+    const orderIds = [];
     
     selectedOrders.each(function() {
         const orderId = $(this).val();
+        orderIds.push(orderId);
         updatePromises.push($.ajax({
             url: `${CONFIG.apiBaseUrl}/${orderId}`,
             type: 'PUT',
             headers: {
-            'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
-        },
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+            },
             data: { status: action }
         }));
     });
 
     $.when.apply($, updatePromises)
         .done(function() {
+            // Update local data
+            orderIds.forEach(orderId => {
+                const orderIndex = allOrders.findIndex(order => order.order_id == orderId);
+                if (orderIndex !== -1) {
+                    allOrders[orderIndex].order_status = action;
+                }
+            });
+            
+            applyFiltersAndUpdateTable();
+            
             Swal.fire({
                 icon: 'success',
                 title: 'Success!',
                 text: `${selectedOrders.length} order(s) ${actionText}ed successfully.`,
                 confirmButtonColor: '#198754'
             });
-            ordersTable.ajax.reload();
+            
             $('#selectAll').prop('checked', false);
         })
         .fail(function() {
@@ -494,13 +771,13 @@ function handleDateFilter(selectedValue) {
         $('#customDateStartContainer, #customDateEndContainer').show();
     } else {
         $('#customDateStartContainer, #customDateEndContainer').hide();
-        // Add your custom date filtering logic here
-        ordersTable.draw();
+        applyFiltersAndUpdateTable();
+        updateOrderCount();
     }
 }
 
 function exportOrders() {
-    const data = ordersTable.data().toArray();
+    const data = filteredOrders.length > 0 ? filteredOrders : allOrders;
     
     if (data.length === 0) {
         Swal.fire({
@@ -592,9 +869,9 @@ function populateOrderDetails(order) {
             itemsHtml += `
                 <tr>
                     <td>${item.item_name || 'Unknown Product'}</td>
-                    <td>$${parseFloat(item.order_price || 0).toFixed(2)}</td>
+                    <td>${parseFloat(item.order_price || 0).toFixed(2)}</td>
                     <td><span class="badge bg-primary">${item.qty}</span></td>
-                    <td class="fw-bold">$${lineTotal.toFixed(2)}</td>
+                    <td class="fw-bold">${lineTotal.toFixed(2)}</td>
                 </tr>
             `;
         });
@@ -609,10 +886,10 @@ function populateOrderDetails(order) {
     const tax = subtotal * 0.08;
     const total = subtotal + shipping + tax;
 
-    $('#orderSubtotal').text(`$${subtotal.toFixed(2)}`);
-    $('#orderShipping').text(`$${shipping.toFixed(2)}`);
-    $('#orderTax').text(`$${tax.toFixed(2)}`);
-    $('#orderTotal').text(`$${total.toFixed(2)}`);
+    $('#orderSubtotal').text(`${subtotal.toFixed(2)}`);
+    $('#orderShipping').text(`${shipping.toFixed(2)}`);
+    $('#orderTax').text(`${tax.toFixed(2)}`);
+    $('#orderTotal').text(`${total.toFixed(2)}`);
 }
 
 // Utility functions
@@ -636,67 +913,64 @@ function showSuccessAlert(title, message) {
 
 function logout() {
     Swal.fire({
-                title: 'Sign Out Confirmation 🚪',
-                text: 'Are you sure you want to sign out of your GemTry account?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#d4af37',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Yes, Sign Out',
-                cancelButtonText: 'Stay Signed In',
-                backdrop: true,
-                reverseButtons: true
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    try {
-                        // Show signing out process
-                        Swal.fire({
-                            title: 'Signing You Out... 🔄',
-                            text: 'Securely logging you out of your account',
-                            icon: 'info',
-                            showConfirmButton: false,
-                            allowOutsideClick: false,
-                            didOpen: () => {
-                                Swal.showLoading();
-                            }
-                        });
-
-                        // Simulate logout delay for better UX
-                        setTimeout(() => {
-                            // Clear session storage
-                            sessionStorage.removeItem('authToken');
-                            sessionStorage.removeItem('role');
-                            sessionStorage.removeItem('name');
-                            sessionStorage.removeItem('initial');
-                            
-                            
-                            
-                            // Success notification
-                            Swal.fire({
-                                title: 'Successfully Signed Out! 👋',
-                                text: 'Thank you for visiting GemTry. Come back soon for more beautiful jewelry!',
-                                icon: 'success',
-                                confirmButtonColor: '#d4af37',
-                                confirmButtonText: 'Browse More',
-                                timer: 4000,
-                                timerProgressBar: true
-                            }).then(() => {
-                                window.location.href = '../login.html';
-                            });
-                            1500
-                        });
-                        
-                    } catch (error) {
-                        console.error('Logout error:', error);
-                        Swal.fire({
-                            title: 'Sign Out Error! ⚠️',
-                            text: 'We encountered an issue while signing you out. Please try closing your browser for security.',
-                            icon: 'error',
-                            confirmButtonColor: '#dc3545',
-                            confirmButtonText: 'I Understand',
-                            footer: '<small>For security, please close your browser session</small>'
-                        });
+        title: 'Sign Out Confirmation 🚪',
+        text: 'Are you sure you want to sign out of your GemTry account?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#d4af37',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, Sign Out',
+        cancelButtonText: 'Stay Signed In',
+        backdrop: true,
+        reverseButtons: true
+    }).then((result) => {
+        if (result.isConfirmed) {
+            try {
+                // Show signing out process
+                Swal.fire({
+                    title: 'Signing You Out... 🔄',
+                    text: 'Securely logging you out of your account',
+                    icon: 'info',
+                    showConfirmButton: false,
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
                     }
-                }
-            });
+                });
+
+                // Simulate logout delay for better UX
+                setTimeout(() => {
+                    // Clear session storage
+                    sessionStorage.removeItem('authToken');
+                    sessionStorage.removeItem('role');
+                    sessionStorage.removeItem('name');
+                    sessionStorage.removeItem('initial');
+                    
+                    // Success notification
+                    Swal.fire({
+                        title: 'Successfully Signed Out! 👋',
+                        text: 'Thank you for visiting GemTry. Come back soon for more beautiful jewelry!',
+                        icon: 'success',
+                        confirmButtonColor: '#d4af37',
+                        confirmButtonText: 'Browse More',
+                        timer: 4000,
+                        timerProgressBar: true
+                    }).then(() => {
+                        window.location.href = '../login.html';
+                    });
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Logout error:', error);
+                Swal.fire({
+                    title: 'Sign Out Error! ⚠️',
+                    text: 'We encountered an issue while signing you out. Please try closing your browser for security.',
+                    icon: 'error',
+                    confirmButtonColor: '#dc3545',
+                    confirmButtonText: 'I Understand',
+                    footer: '<small>For security, please close your browser session</small>'
+                });
+            }
+        }
+    });
 }

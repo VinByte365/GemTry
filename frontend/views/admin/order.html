@@ -9,6 +9,120 @@
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
     <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../../css/admin/user.css">
+    
+    <style>
+    /* Infinite Scroll Enhancements */
+    .dataTables_scrollBody {
+        max-height: 60vh !important;
+        overflow-y: auto !important;
+    }
+
+    /* Smooth scrolling */
+    .dataTables_scrollBody {
+        scroll-behavior: smooth;
+    }
+
+    /* Loading states */
+    #initialLoadingIndicator .spinner-border {
+        width: 2rem;
+        height: 2rem;
+    }
+
+    #loadMoreIndicator {
+        background-color: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+
+    /* Search input enhancements */
+    #orderSearch {
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+
+    #orderSearch:focus {
+        border-color: #86b7fe;
+        outline: 0;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+
+    /* Order count display */
+    #orderCountDisplay {
+        font-size: 0.875rem;
+        color: #6c757d !important;
+    }
+
+    /* Responsive table improvements */
+    @media (max-width: 768px) {
+        .dataTables_scrollBody {
+            max-height: 50vh !important;
+        }
+        
+        #orderCountDisplay {
+            display: block;
+            margin-top: 0.25rem;
+        }
+    }
+
+    /* Status badge animations */
+    .badge {
+        transition: all 0.2s ease;
+    }
+
+    .badge:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    /* Table row hover effects */
+    #ordersTable tbody tr {
+        transition: background-color 0.15s ease;
+    }
+
+    #ordersTable tbody tr:hover {
+        background-color: rgba(13, 110, 253, 0.05) !important;
+    }
+
+    /* Action buttons improvements */
+    .btn-group .btn {
+        transition: all 0.15s ease;
+    }
+
+    .btn-group .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    /* Scroll indicator styling */
+    .bg-light {
+        background-color: #f8f9fa !important;
+    }
+
+    /* Custom checkbox styling */
+    .form-check-input:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+
+    /* Dropdown menu improvements */
+    .dropdown-menu {
+        border: 1px solid rgba(0,0,0,.125);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+
+    .dropdown-item {
+        transition: background-color 0.15s ease;
+    }
+
+    .dropdown-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    /* Loading more indicator */
+    .loading-more {
+        display: none;
+        text-align: center;
+        padding: 20px;
+    }
+    </style>
 </head>
 <body>
     <div class="d-flex" id="wrapper">
@@ -49,20 +163,29 @@
                     </div>
                 </div>
                 
-                <!-- Order Filters -->
+                <!-- Enhanced Filters & Search -->
                 <div class="card mb-4">
                     <div class="card-header">
-                        <i class="bi bi-funnel"></i> Filters
+                        <i class="bi bi-funnel"></i> Filters & Search
                     </div>
                     <div class="card-body">
                         <div class="row">
+                            <div class="col-md-4">
+                                <label class="form-label">Search Orders</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-search"></i>
+                                    </span>
+                                    <input type="text" class="form-control" id="orderSearch" placeholder="Search by Order ID, Customer name...">
+                                </div>
+                            </div>
                             <div class="col-md-3">
                                 <label class="form-label">Status</label>
                                 <select class="form-select" id="statusFilter">
                                     <option value="">All Statuses</option>
                                     <option value="pending">Pending</option>
-                                    <option value="processing">Processing</option>
-                                    <option value="completed">Completed</option>
+                                    <option value="shipped">Shipped</option>
+                                    <option value="delivered">Delivered</option>
                                     <option value="cancelled">Cancelled</option>
                                 </select>
                             </div>
@@ -76,11 +199,25 @@
                                     <option value="custom">Custom Range</option>
                                 </select>
                             </div>
-                            <div class="col-md-3" id="customDateStartContainer" style="display:none;">
+                            <div class="col-md-2">
+                                <label class="form-label">&nbsp;</label>
+                                <div class="d-grid">
+                                    <button class="btn btn-outline-primary" id="refreshOrdersBtn">
+                                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Custom date range inputs (initially hidden) -->
+                        <div class="row mt-3" id="customDateStartContainer" style="display: none;">
+                            <div class="col-md-6">
                                 <label class="form-label">Start Date</label>
                                 <input type="date" class="form-control" id="customDateStart">
                             </div>
-                            <div class="col-md-3" id="customDateEndContainer" style="display:none;">
+                        </div>
+                        <div class="row mt-3" id="customDateEndContainer" style="display: none;">
+                            <div class="col-md-6">
                                 <label class="form-label">End Date</label>
                                 <input type="date" class="form-control" id="customDateEnd">
                             </div>
@@ -88,40 +225,67 @@
                     </div>
                 </div>
                 
-                <!-- Orders Table -->
+                <!-- Enhanced Orders Table Card -->
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <div>
-                            <i class="bi bi-table"></i> Order List
+                            <i class="bi bi-table"></i> Orders List
+                            <small class="text-muted ms-2" id="orderCountDisplay">Loading orders...</small>
                         </div>
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" id="bulkActions" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="bi bi-list-check"></i> Bulk Actions
+                        <div class="d-flex gap-2">
+                            <!-- Export Button -->
+                            <button class="btn btn-sm btn-outline-success" id="exportOrdersBtnHeader">
+                                <i class="bi bi-download"></i> Export
                             </button>
-                            <ul class="dropdown-menu" aria-labelledby="bulkActions">
-                                <li><a class="dropdown-item" href="#" id="bulkShip">Mark as Shipped</a></li>
-                                <li><a class="dropdown-item" href="#" id="bulkProcess">Mark as Processing</a></li>
-                                <li><a class="dropdown-item" href="#" id="bulkComplete">Mark as Completed</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-danger" href="#" id="bulkCancel">Cancel Orders</a></li>
-                            </ul>
+                            
+                            <!-- Bulk Actions Dropdown -->
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" id="bulkActions" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-list-check"></i> Bulk Actions
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="bulkActions">
+                                    <li><a class="dropdown-item" href="#" id="bulkProcess">
+                                        <i class="bi bi-clock text-warning"></i> Mark as Processing
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="#" id="bulkShip">
+                                        <i class="bi bi-truck text-info"></i> Mark as Shipped
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="#" id="bulkComplete">
+                                        <i class="bi bi-check-circle text-success"></i> Mark as Delivered
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item text-danger" href="#" id="bulkCancel">
+                                        <i class="bi bi-x-circle"></i> Cancel Orders
+                                    </a></li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
-                    <div class="card-body">
-                        <div class="scrollable-table">
-                            <table id="ordersTable" class="table table-hover" style="width:100%">
-                                <thead>
+                    
+                    <div class="card-body p-0">
+                        <!-- Initial Loading Indicator -->
+                        <div id="initialLoadingIndicator" class="text-center py-4" style="display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Loading orders...</p>
+                        </div>
+                        
+                        <!-- Orders Table -->
+                        <div class="table-responsive">
+                            <table id="ordersTable" class="table table-hover mb-0" style="width:100%">
+                                <thead class="table-light">
                                     <tr>
-                                        <th width="5%">
-                                            <input type="checkbox" id="selectAll">
+                                        <th width="40px">
+                                            <input type="checkbox" id="selectAll" class="form-check-input">
                                         </th>
-                                        <th width="10%">Order ID</th>
-                                        <th width="20%">Customer</th>
-                                        <th width="15%">Date</th>
-                                        <th width="15%">Total</th>
-                                        <th width="15%">Status</th>
-                                        <th width="15%">Items</th>
-                                        <th width="10%">Actions</th>
+                                        <th>Order ID</th>
+                                        <th>Customer</th>
+                                        <th>Date</th>
+                                        <th>Total</th>
+                                        <th>Status</th>
+                                        <th>Items</th>
+                                        <th width="100px">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="ordersTableBody">
@@ -129,11 +293,28 @@
                                 </tbody>
                             </table>
                         </div>
+                        
+                        <!-- Load More Indicator -->
+                        <div id="loadMoreIndicator" class="text-center py-3 border-top" style="display: none;">
+                            <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <small class="text-muted">Loading more orders...</small>
+                        </div>
+                        
+                        <!-- Legacy Loading More Indicator -->
                         <div class="loading-more" id="loadingMore">
                             <div class="spinner-border" role="status">
                                 <span class="visually-hidden">Loading...</span>
                             </div>
                             <p>Loading more orders...</p>
+                        </div>
+                        
+                        <!-- Scroll to load more indicator -->
+                        <div class="text-center py-3 border-top bg-light">
+                            <small class="text-muted">
+                                <i class="bi bi-arrow-down"></i> Scroll down to load more orders
+                            </small>
                         </div>
                     </div>
                 </div>
