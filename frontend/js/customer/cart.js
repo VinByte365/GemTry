@@ -118,6 +118,85 @@ function addToCart(productId, quantity = 1, callback = null) {
     });
 }
 
+$(document).on('click', '#checkoutBtn', function () {
+    checkoutCart();
+})
+
+function checkoutCart() {
+    const authToken = sessionStorage.getItem('authToken');
+
+    if (!authToken) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Login Required',
+            text: 'Please log in to complete your purchase.',
+            confirmButtonColor: '#3085d6'
+        });
+        return;
+    }
+
+    Swal.fire({
+        title: 'Proceed to Checkout?',
+        text: 'Are you sure you want to place this order?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Checkout',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#d4af37',
+        cancelButtonColor: '#6c757d'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Show loading spinner
+            Swal.fire({
+                title: 'Processing Order...',
+                text: 'Please wait while we finalize your purchase.',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            $.ajax({
+                url: 'http://localhost:8080/api/v1/cart/checkout',
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + authToken
+                },
+                success: function(response) {
+                    // Clear the cart (optional: call clearCart() instead)
+                    fetchCartCount();
+                    $('#cartItems').empty();
+                    $('#subtotal, #total').text('₱0.00');
+                    $('.cart-container').hide();
+                    $('#emptyCart').removeClass('hidden');
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Order Placed! 🎉',
+                        text: 'Thank you for your purchase. Your order is on its way!',
+                        confirmButtonColor: '#d4af37',
+                        timer: 3000,
+                        timerProgressBar: true
+                    });
+
+                    // Optional: redirect to order confirmation or history
+                    // setTimeout(() => window.location.href = '/orders.html', 3000);
+                },
+                error: function(xhr) {
+                    const message = xhr.responseJSON?.message || 'Something went wrong during checkout. Please try again.';
+
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Checkout Failed',
+                        text: message,
+                        confirmButtonColor: '#d33'
+                    });
+                }
+            });
+        }
+    });
+}
+
 // Add to cart from product detail modal with quantity validation
 function addToCartFromDetail(productId, product) {
     const quantity = parseInt($('#quantity').val()) || 1;

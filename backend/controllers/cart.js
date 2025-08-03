@@ -3,7 +3,7 @@ const db = require('../config/database');
 
 // Add item to cart
 exports.addToCart = (req, res) => {
-    
+    const user_id = req.user?.id;
     const { item_id, quantity } = req.body;
 
     if (!item_id || !quantity) {
@@ -76,7 +76,6 @@ function sendCartCount(res, user_id) {
         });
     });
 }
-
 
 // Get cart items
 exports.getCart = (req, res) => {
@@ -299,98 +298,134 @@ exports.cartCheckout = (req, res) => {
     const user_id = req.user?.id;
 
     if (!user_id) {
-        return res.status(401).json({ success: false, message: 'Unauthorized. User not authenticated.' });
+        return res.status(401).json({
+            success: false,
+            message: 'Unauthorized. User not authenticated.'
+        });
     }
 
-    db.getConnection((err, connection) => {
+    db.beginTransaction(err => {
         if (err) {
-            console.error('Connection error:', err);
-            return res.status(500).json({ success: false, message: 'Database connection failed' });
+            console.error('❌ Transaction start error:', err);
+            return res.status(500).json({ success: false, message: 'Failed to start transaction' });
         }
 
-        connection.beginTransaction(err => {
-            if (err) {
-                connection.release();
-                return res.status(500).json({ success: false, message: 'Failed to start transaction' });
+        const getCartQuery = `
+            SELECT c.item_id, c.quantity, i.item_price, s.qty AS stock_qty
+            FROM cart c
+            JOIN items i ON c.item_id = i.item_id
+            LEFT JOIN stocks s ON c.item_id = s.item_id
+            WHERE c.user_id = ?
+        `;
+
+        db.query(getCartQuery, [user_id], (err, cartItems) => {
+            if (err || cartItems.length === 0) {
+                return db.rollback(() => {
+                    const msg = err ? 'Failed to retrieve cart items' : 'Cart is empty';
+                    console.error('❌', msg, err);
+                    return res.status(400).json({ success: false, message: msg });
+                });
             }
 
-            const getCartQuery = `
-                SELECT c.item_id, c.quantity, p.item_price
-                FROM cart c
-                JOIN products p ON c.item_id = p.item_id
-                WHERE c.user_id = ?
-            `;
+            // Check for stock availability
+            const outOfStock = cartItems.find(item => item.stock_qty < item.quantity);
+            if (outOfStock) {
+                return db.rollback(() => {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Item ID ${outOfStock.item_id} does not have enough stock.`
+                    });
+                });
+            }
 
-            connection.query(getCartQuery, [user_id], (err, cartItems) => {
-                if (err || cartItems.length === 0) {
-                    return connection.rollback(() => {
-                        connection.release();
-                        const msg = err ? 'Failed to retrieve cart items' : 'Cart is empty';
-                        return res.status(400).json({ success: false, message: msg });
+            const insertOrderQuery = "INSERT INTO orders (user_id, order_status, order_placed) VALUES (?, 'pending', NOW())";
+
+            db.query(insertOrderQuery, [user_id], (err, orderResult) => {
+                if (err) {
+                    return db.rollback(() => {
+                        console.error('❌ Failed to insert order:', err);
+                        return res.status(500).json({ success: false, message: 'Failed to create order' });
                     });
                 }
 
-                const orderInsertQuery = `
-                    INSERT INTO \`order\` (user_id, order_status, order_placed)
-                    VALUES (?, 'PLACED', NOW())
+                const orderId = orderResult.insertId;
+
+                const orderlineValues = cartItems.map(item => [
+                    orderId,
+                    item.item_id,
+                    item.quantity,
+                    item.item_price
+                ]);
+
+                const insertOrderlineQuery = `
+                    INSERT INTO orderlines (order_id, item_id, qty, order_price)
+                    VALUES ?
                 `;
 
-                connection.query(orderInsertQuery, [user_id], (err, orderResult) => {
+                db.query(insertOrderlineQuery, [orderlineValues], (err) => {
                     if (err) {
-                        return connection.rollback(() => {
-                            connection.release();
-                            return res.status(500).json({ success: false, message: 'Failed to create order' });
+                        return db.rollback(() => {
+                            console.error('❌ Failed to insert orderlines:', err);
+                            return res.status(500).json({ success: false, message: 'Failed to insert order items' });
                         });
                     }
 
-                    const orderId = orderResult.insertId;
-                    const orderlineValues = cartItems.map(item => [orderId, item.item_id, item.quantity, item.item_price]);
-
-                    const orderlineInsertQuery = `
-                        INSERT INTO orderline (order_id, item_id, qty, order_price)
-                        VALUES ?
-                    `;
-
-                    connection.query(orderlineInsertQuery, [orderlineValues], (err) => {
-                        if (err) {
-                            return connection.rollback(() => {
-                                connection.release();
-                                return res.status(500).json({ success: false, message: 'Failed to insert order items' });
-                            });
-                        }
-
-                        const clearCartQuery = `DELETE FROM cart WHERE user_id = ?`;
-
-                        connection.query(clearCartQuery, [user_id], (err) => {
-                            if (err) {
-                                return connection.rollback(() => {
-                                    connection.release();
-                                    return res.status(500).json({ success: false, message: 'Failed to clear cart' });
-                                });
-                            }
-
-                            connection.commit(err => {
+                    // Decrement stock quantities
+                    const stockUpdateQueries = cartItems.map(item => {
+                        return new Promise((resolve, reject) => {
+                            const updateStockQuery = `
+                                UPDATE stocks SET qty = qty - ? WHERE item_id = ?
+                            `;
+                            db.query(updateStockQuery, [item.quantity, item.item_id], (err) => {
                                 if (err) {
-                                    return connection.rollback(() => {
-                                        connection.release();
-                                        return res.status(500).json({ success: false, message: 'Failed to commit transaction' });
-                                    });
+                                    reject(err);
+                                } else {
+                                    resolve();
                                 }
-
-                                connection.release();
-                                return res.status(200).json({
-                                    success: true,
-                                    message: 'Checkout successful',
-                                    order_id: orderId
-                                });
                             });
                         });
                     });
+
+                    Promise.all(stockUpdateQueries)
+                        .then(() => {
+                            const clearCartQuery = `DELETE FROM cart WHERE user_id = ?`;
+                            db.query(clearCartQuery, [user_id], (err) => {
+                                if (err) {
+                                    return db.rollback(() => {
+                                        console.error('❌ Failed to clear cart:', err);
+                                        return res.status(500).json({ success: false, message: 'Failed to clear cart' });
+                                    });
+                                }
+
+                                db.commit(err => {
+                                    if (err) {
+                                        return db.rollback(() => {
+                                            console.error('❌ Commit error:', err);
+                                            return res.status(500).json({ success: false, message: 'Failed to commit transaction' });
+                                        });
+                                    }
+
+                                    return res.status(200).json({
+                                        success: true,
+                                        message: 'Checkout successful',
+                                        order_id: orderId
+                                    });
+                                });
+                            });
+                        })
+                        .catch(err => {
+                            return db.rollback(() => {
+                                console.error('❌ Stock update failed:', err);
+                                return res.status(500).json({ success: false, message: 'Failed to update stock' });
+                            });
+                        });
                 });
             });
         });
     });
 };
+
+
 
 
 

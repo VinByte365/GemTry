@@ -28,6 +28,6 @@ router.route('/count')
     .get(isAuthenticatedUser, authorizeRoles('user'), getCartCount);
 
 router.route('/checkout')
-    .get(isAuthenticatedUser, authorizeRoles('user'), cartCheckout);
+    .post(isAuthenticatedUser, authorizeRoles('user'), cartCheckout);
     
 module.exports = router;
