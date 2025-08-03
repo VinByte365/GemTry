@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop - GemTry Jewelry Collections</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../../css/customer/shop.css">
+    <link rel="stylesheet" href="../../css/customer/homepage.css">
+    <link rel="stylesheet" href="../../css/customer/cart.css">
+</head>
+<body>
+    <!-- Header/Navbar -->
+    <header id="header">
+    <div class="navbar">
+        <div class="logo">GemTry</div>
+        
+        <div class="mobile-menu-toggle" id="mobileToggle">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+        
+        <div class="nav-links" id="navLinks">
+            <a href="index.html">Home</a>
+            <a href="shop.html" class="active">Shop</a>
+        </div>
+        
+        <!-- Guest Navigation (default hidden if logged in) -->
+        <div class="nav-icons" id="guestNav">
+            <i class="fas fa-search" title="Search"></i>
+            <a href="../login.html" class="login-btn" id="loginBtn">Login</a>
+        </div>
+
+        <!-- User Navigation (hidden by default, shown when logged in) -->
+        <div class="nav-icons hidden" id="userNav">
+            <div class="user-welcome">
+                <span>Welcome back,</span>
+                <span id="userName">Guest</span>
+            </div>
+            <i class="fas fa-search" title="Search"></i>
+            <i class="fas fa-heart" title="Wishlist"></i>
+            <div class="user-dropdown">
+                <div class="user-avatar" id="userAvatar">G</div>
+                <div class="dropdown-menu" id="dropdownMenu">
+                    <a href="../user/profile.html" class="dropdown-item">
+                        <i class="fas fa-user"></i>
+                        My Profile
+                    </a>
+                    <a href="../user/orders.html" class="dropdown-item">
+                        <i class="fas fa-box"></i>
+                        My Orders
+                    </a>
+                    <a href="../user/settings.html" class="dropdown-item">
+                        <i class="fas fa-cog"></i>
+                        Settings
+                    </a>
+                    <a href="#" class="dropdown-item" id="logoutBtn">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <!-- Shop Main Content -->
+    <div class="shop-container">
+        <!-- Shop Header -->
+        <div class="shop-header">
+            <h1 class="shop-title">Our Jewelry Collection</h1>
+            <p class="shop-subtitle">Discover our exquisite range of handcrafted jewelry pieces, each telling a unique story of elegance and sophistication.</p>
+        </div>
+
+        <!-- Shop Content -->
+        <div class="shop-content">
+            <!-- Filters Sidebar -->
+            <aside class="filters-sidebar">
+                <h3 class="filters-title">
+                    <i class="fas fa-filter"></i>
+                    Filters
+                </h3>
+
+                <!-- Category Filter -->
+                <div class="filter-section">
+                    <h4><i class="fas fa-tags"></i> Categories</h4>
+                    <div class="category-filters" id="categoryFilters">
+                        <div class="category-filter">
+                            <input type="checkbox" id="cat-all" value="all" checked>
+                            <label for="cat-all">All Categories</label>
+                            <span class="category-count" id="count-all">0</span>
+                        </div>
+                        <!-- Categories will be loaded dynamically -->
+                    </div>
+                </div>
+
+                <!-- Price Range Filter -->
+                <div class="filter-section">
+                    <h4><i class="fas fa-peso-sign"></i> Price Range</h4>
+                    <div class="price-range">
+                        <div class="price-inputs">
+                            <div class="price-input">
+                                <input type="number" id="minPrice" placeholder="0" min="0">
+                            </div>
+                            <span class="price-separator">to</span>
+                            <div class="price-input">
+                                <input type="number" id="maxPrice" placeholder="50000" min="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sort By -->
+                <div class="filter-section">
+                    <h4><i class="fas fa-sort"></i> Sort By</h4>
+                    <select class="sort-select" id="sortBy">
+                        <option value="name-asc">Name (A-Z)</option>
+                        <option value="name-desc">Name (Z-A)</option>
+                        <option value="price-asc">Price (Low to High)</option>
+                        <option value="price-desc">Price (High to Low)</option>
+                        <option value="newest">Newest First</option>
+                    </select>
+                </div>
+
+                <!-- Filter Actions -->
+                <div class="filter-actions">
+                    <button class="apply-filters" id="applyFilters">Apply Filters</button>
+                    <button class="clear-filters" id="clearFilters">Clear All</button>
+                </div>
+            </aside>
+
+            <!-- Products Area -->
+            <main class="products-area">
+                <!-- Products Header -->
+                <div class="products-header">
+                    <div class="results-count" id="resultsCount">
+                        Showing <strong>0</strong> of <strong>0</strong> products
+                    </div>
+                    <div class="view-controls">
+                        <div class="view-toggle">
+                            <button class="view-btn active" id="gridView" data-view="grid">
+                                <i class="fas fa-th"></i>
+                            </button>
+                            <button class="view-btn" id="listView" data-view="list">
+                                <i class="fas fa-list"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Products Grid -->
+                <div class="product-grid" id="productGrid">
+                    <!-- Products will be loaded here by JavaScript -->
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination" id="pagination">
+                    <!-- Pagination will be generated by JavaScript -->
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Product Detail Modal -->
+    <div class="product-modal" id="productModal">
+        <div class="modal-content">
+            <span class="modal-close" id="modalClose">&times;</span>
+            <div class="product-detail" id="productDetail">
+                <!-- Content will be loaded here by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="../../js/customer/homepage.js"></script>
+    <script src="../../js/customer/cart.js"></script>
+</body>
+</html>

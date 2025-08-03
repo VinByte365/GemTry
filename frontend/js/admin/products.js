@@ -1,7 +1,136 @@
 // Product Management JavaScript with SweetAlert2
 document.addEventListener('DOMContentLoaded', function() {
+    // Add custom validation methods first
+    addCustomValidationMethods();
     initializeProductManagement();
+
+    // JQUERY Validation Setup
+    $('#productForm').validate({
+        rules: {
+            productName: {
+                required: true,
+                minlength: 2
+            },
+            productCategory: {
+                required: true
+            },
+            productPrice: {
+                required: true,
+                number: true,
+                min: 0.01
+            },
+            productStock: {
+                required: true,
+                digits: true,
+                min: 0
+            },
+            mainProductImage: {
+                required: function() {
+                    // Only required if no product ID (new product)
+                    return !$('#productId').val();
+                },
+                accept: "image/*",
+                filesize: 5 * 1024 * 1024 // 5MB
+            },
+            productGallery: {
+                required: function() {
+                    // Only required if no product ID (new product)
+                    return !$('#productId').val();
+                },
+                accept: "image/*",
+                maxfiles: 5,
+                filesize: 5 * 1024 * 1024 // 5MB per file
+            }
+        },
+        messages: {
+            productName: {
+                required: "Please enter the product name",
+                minlength: "Name must be at least 2 characters"
+            },
+            productCategory: {
+                required: "Please select a product category"
+            },
+            productPrice: {
+                required: "Please enter the product price",
+                number: "Please enter a valid number",
+                min: "Price must be at least $0.01"
+            },
+            productStock: {
+                required: "Please enter the stock quantity",
+                digits: "Only whole numbers are allowed",
+                min: "Stock cannot be negative"
+            },
+            mainProductImage: {
+                required: "Please select a main product image",
+                accept: "Only image files are allowed",
+                filesize: "File size must be less than 5MB"
+            },
+            productGallery: {
+                required: "Please select at least one gallery image",
+                accept: "Only image files are allowed",
+                maxfiles: "Maximum 5 files allowed",
+                filesize: "Each file must be less than 5MB"
+            }
+        },
+        errorClass: 'text-danger',
+        errorElement: 'div',
+        highlight: function(element) {
+            $(element).addClass('is-invalid');
+        },
+        unhighlight: function(element) {
+            $(element).removeClass('is-invalid');
+        },
+        errorPlacement: function(error, element) {
+            // Place error message after the element
+            error.insertAfter(element);
+        }
+    });
 });
+
+// For product gallery validation
+function addCustomValidationMethods() {
+    // File size validation method
+    $.validator.addMethod("filesize", function(value, element, param) {
+        if (!element.files || element.files.length === 0) {
+            return true; // Let required handle empty files
+        }
+        
+        for (let i = 0; i < element.files.length; i++) {
+            if (element.files[i].size > param) {
+                return false;
+            }
+        }
+        return true;
+    }, "File size is too large");
+
+    // Maximum files validation method
+    $.validator.addMethod("maxfiles", function(value, element, param) {
+        if (!element.files) {
+            return true;
+        }
+        return element.files.length <= param;
+    }, "Too many files selected");
+
+    // File type validation method (improved accept method)
+    $.validator.addMethod("accept", function(value, element, param) {
+        if (!element.files || element.files.length === 0) {
+            return true; // Let required handle empty files
+        }
+        
+        // If param is "image/*", check if all files are images
+        if (param === "image/*") {
+            for (let i = 0; i < element.files.length; i++) {
+                if (!element.files[i].type.startsWith('image/')) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        
+        // Original accept method logic for other cases
+        return this.optional(element) || element.files[0].type.match(new RegExp(param));
+    }, "Invalid file type");
+}
 
 async function fetchCategories() {
     try {
@@ -147,32 +276,10 @@ async function initializeProductManagement() {
         const preview = document.getElementById('mainImagePreview');
         const previewImg = document.getElementById('mainPreviewImg');
         
-        if (file) {
-            // Validate file size (5MB)
-            if (file.size > 5 * 1024 * 1024) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'File Too Large',
-                    text: 'File size must be less than 5MB.',
-                    confirmButtonText: 'OK'
-                });
-                this.value = '';
-                return;
-            }
-            
-            // Validate file type
-            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
-            if (!allowedTypes.includes(file.type)) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Invalid File Type',
-                    text: 'Please select a valid image file (JPG, PNG, GIF).',
-                    confirmButtonText: 'OK'
-                });
-                this.value = '';
-                return;
-            }
-            
+        // Validate the file first
+        $(this).valid();
+        
+        if (file && file.type.startsWith('image/')) {
             const reader = new FileReader();
             reader.onload = function(e) {
                 previewImg.src = e.target.result;
@@ -190,6 +297,9 @@ async function initializeProductManagement() {
         const galleryContainer = document.getElementById('galleryPreview');
         const emptyMessage = document.getElementById('emptyGalleryMessage');
         
+        // Validate the files first
+        $(this).valid();
+
         if (files.length > 0) {
             emptyMessage.style.display = 'none';
             
@@ -201,7 +311,7 @@ async function initializeProductManagement() {
                     const reader = new FileReader();
                     reader.onload = function(e) {
                         const galleryItem = document.createElement('div');
-                        galleryItem.className = 'position-relative d-inline-block';
+                        galleryItem.className = 'position-relative d-inline-block me-2 mb-2';
                         galleryItem.innerHTML = `
                             <img src="${e.target.result}" alt="Gallery Image ${index + 1}" class="img-thumbnail" style="max-width: 120px; max-height: 120px; object-fit: cover;">
                             <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 remove-gallery-preview" data-index="${index}">
@@ -221,6 +331,12 @@ async function initializeProductManagement() {
 
     // Handle form submission
     document.getElementById('saveProduct').addEventListener('click', function () {
+        // Validate form using JQUERY first
+        if (!$('#productForm').valid()) {
+            console.log('Form validation failed');
+            return;
+        }
+
         const formData = new FormData();
         const productId = document.getElementById('productId').value;
         const productName = document.getElementById('productName').value.trim();
@@ -230,27 +346,6 @@ async function initializeProductManagement() {
         const productDescription = document.getElementById('productDescription').value.trim();
         const mainImage = document.getElementById('mainProductImage').files[0];
         const galleryImages = document.getElementById('productGallery').files;
-
-        // For editing, only require name. For new products, require all fields
-        if (!productName) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Missing Information',
-                text: 'Product name is required.',
-                confirmButtonText: 'OK'
-            });
-            return;
-        }
-        
-        if (!productId && (!productCategory || !productPrice || !productStock)) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Missing Information',
-                text: 'Please fill in all required fields for new product.',
-                confirmButtonText: 'OK'
-            });
-            return;
-        }
 
         // Prepare form data - match the backend field names
         formData.append('name', productName);
@@ -293,6 +388,9 @@ async function initializeProductManagement() {
             url: url,
             type: method,
             data: formData,
+            headers: {
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+            },
             processData: false,
             contentType: false,
             timeout: 30000, // 30 second timeout
@@ -381,6 +479,9 @@ async function initializeProductManagement() {
         $.ajax({
             url: `http://localhost:8080/api/v1/product/${productId}`,
             type: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+            },
             success: function (data) {
                 if (data.product) {
                     const product = data.product;
@@ -425,7 +526,7 @@ async function initializeProductManagement() {
                         data.gallery.forEach((img, index) => {
                             const imgPath = `http://localhost:8080/${img.item_path}`;
                             const galleryItem = $(`
-                                <div class="position-relative d-inline-block">
+                                <div class="position-relative d-inline-block me-2 mb-2">
                                     <img src="${imgPath}" alt="Gallery Image ${index + 1}" class="img-thumbnail" style="max-width: 150px; max-height: 150px;">
                                     <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 remove-gallery-image" data-path="${img.item_path}">
                                         <i class="bi bi-x-lg"></i>
@@ -490,6 +591,9 @@ async function initializeProductManagement() {
                 $.ajax({
                     url: `http://localhost:8080/api/v1/product/${productId}`,
                     type: 'DELETE',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+                    },
                     success: function(data) {
                         Swal.fire({
                             icon: 'success',
@@ -584,7 +688,10 @@ async function initializeProductManagement() {
                     const productId = checkbox.value;
                     deletePromises.push($.ajax({
                         url: `http://localhost:8080/api/v1/product/${productId}`,
-                        type: 'DELETE'
+                        type: 'DELETE',
+                        headers: {
+                            'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+                        },
                     }));
                 });
 
@@ -675,6 +782,10 @@ function resetForm() {
     
     // Reset category dropdown
     $('#productCategory').val('');
+    
+    // Clear validation errors
+    $('#productForm').validate().resetForm();
+    $('#productForm .is-invalid').removeClass('is-invalid');
 }
 
 function populateCategoryFilter() {
@@ -686,4 +797,73 @@ function populateCategoryFilter() {
 function removeMainImage() {
     document.getElementById('mainProductImage').value = '';
     document.getElementById('mainImagePreview').style.display = 'none';
+    // Revalidate the field
+    $('#mainProductImage').valid();
+}
+
+function logout() {
+    Swal.fire({
+                title: 'Sign Out Confirmation 🚪',
+                text: 'Are you sure you want to sign out of your GemTry account?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#d4af37',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Sign Out',
+                cancelButtonText: 'Stay Signed In',
+                backdrop: true,
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    try {
+                        // Show signing out process
+                        Swal.fire({
+                            title: 'Signing You Out... 🔄',
+                            text: 'Securely logging you out of your account',
+                            icon: 'info',
+                            showConfirmButton: false,
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+
+                        // Simulate logout delay for better UX
+                        setTimeout(() => {
+                            // Clear session storage
+                            sessionStorage.removeItem('authToken');
+                            sessionStorage.removeItem('role');
+                            sessionStorage.removeItem('name');
+                            sessionStorage.removeItem('initial');
+                            
+                            
+                            
+                            // Success notification
+                            Swal.fire({
+                                title: 'Successfully Signed Out! 👋',
+                                text: 'Thank you for visiting GemTry. Come back soon for more beautiful jewelry!',
+                                icon: 'success',
+                                confirmButtonColor: '#d4af37',
+                                confirmButtonText: 'Browse More',
+                                timer: 4000,
+                                timerProgressBar: true
+                            }).then(() => {
+                                window.location.href = '../login.html';
+                            });
+                            1500
+                        });
+                        
+                    } catch (error) {
+                        console.error('Logout error:', error);
+                        Swal.fire({
+                            title: 'Sign Out Error! ⚠️',
+                            text: 'We encountered an issue while signing you out. Please try closing your browser for security.',
+                            icon: 'error',
+                            confirmButtonColor: '#dc3545',
+                            confirmButtonText: 'I Understand',
+                            footer: '<small>For security, please close your browser session</small>'
+                        });
+                    }
+                }
+            });
 }

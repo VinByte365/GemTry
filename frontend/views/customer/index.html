@@ -24,32 +24,26 @@
             
             <div class="nav-links" id="navLinks">
                 <a href="#">Home</a>
-                <a href="#">Shop</a>
-                <a href="#">Collections</a>
+                <a href="shop.html">Shop</a>
             </div>
             
             <!-- Guest Navigation (default hidden if logged in) -->
             <div class="nav-icons" id="guestNav">
                 <i class="fas fa-search" title="Search"></i>
-                <a href="../index.html" class="login-btn" id="loginBtn">Login</a>
-                <div class="cart-badge">
-                    <i class="fas fa-shopping-bag" title="Shopping Cart"></i>
-                    <span class="cart-count hidden" id="cartCount">0</span>
-                </div>
+                <a href="../login.html" class="login-btn" id="loginBtn">Login</a>
             </div>
 
             <!-- User Navigation (hidden by default, shown when logged in) -->
-            <div class="user-nav hidden" id="userNav">
+            <div class="nav-icons hidden" id="userNav">
                 <div class="user-welcome">
                     <span>Welcome back,</span>
                     <span id="userName">Guest</span>
                 </div>
                 <i class="fas fa-search" title="Search"></i>
                 <div class="cart-badge">
-                    <i class="fas fa-shopping-bag" title="Shopping Cart"></i>
+                    <i class="fas fa-shopping-bag" title="Shopping Cart" onclick="window.location.href='cart.html'"></i>
                     <span class="cart-count hidden" id="userCartCount">0</span>
                 </div>
-                <i class="fas fa-heart" title="Wishlist"></i>
                 <div class="user-dropdown">
                     <div class="user-avatar" id="userAvatar">G</div>
                     <div class="dropdown-menu" id="dropdownMenu">
@@ -60,10 +54,6 @@
                         <a href="../user/orders.html" class="dropdown-item">
                             <i class="fas fa-box"></i>
                             My Orders
-                        </a>
-                        <a href="../user/wishlist.html" class="dropdown-item">
-                            <i class="fas fa-heart"></i>
-                            Wishlist
                         </a>
                         <a href="../user/settings.html" class="dropdown-item">
                             <i class="fas fa-cog"></i>
@@ -93,7 +83,7 @@
         <h2 class="section-title">Our Collections</h2>
         <div class="category-grid">
             <div class="category-card">
-                <img src="https://images.unsplash.com/photo-1603974372035-96e0fdf2149b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80" alt="Necklaces">
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS09G8PuCtYB0HicrNIrEFhecqbeDlhyadO4A&s" alt="Necklaces">
                 <div class="category-overlay">
                     <h3>Necklaces</h3>
                     <p>Elegant pieces for every occasion that complement your natural beauty</p>
@@ -165,7 +155,9 @@
         </div>
     </footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="../../js/customer/homepage.js"></script>
+    <script src="../../js/customer/cart.js"></script>
 </body>
 </html>

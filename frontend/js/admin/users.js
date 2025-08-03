@@ -1,6 +1,49 @@
 // User Management JavaScript
 document.addEventListener('DOMContentLoaded', function() {
     initializeUserManagement();
+    // Initialize form validation using jQuery Validate
+    $('#accountForm').validate({
+    rules: {
+        name: {
+            required: true,
+            minlength: 2
+        },
+        email: {
+            required: true,
+            email: true
+        },
+        password: {
+            minlength: 6
+        },
+        confirmPassword: {
+            equalTo: '#password'
+        }
+    },
+    messages: {
+        name: {
+            required: "Full name is required.",
+            minlength: "Name must be at least 2 characters."
+        },
+        email: {
+            required: "Email is required.",
+            email: "Enter a valid email address."
+        },
+        password: {
+            minlength: "Password must be at least 6 characters."
+        },
+        confirmPassword: {
+            equalTo: "Passwords do not match."
+        }
+    },
+    errorElement: 'div',
+    errorClass: 'invalid-feedback',
+    highlight: function (element) {
+        $(element).addClass('is-invalid');
+    },
+    unhighlight: function (element) {
+        $(element).removeClass('is-invalid');
+    }
+});
 });
 
 function initializeUserManagement() {
@@ -9,6 +52,9 @@ function initializeUserManagement() {
         ajax: {
             url: 'http://localhost:8080/api/v1/user',
             dataSrc: '',
+            headers: {
+            'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+        },
             error: function (xhr, error, thrown) {
                 console.error('DataTable error:', error);
                 alert('Error loading users. Please refresh the page.');
@@ -114,6 +160,9 @@ function initializeUserManagement() {
         }
     });
 
+
+    
+
     // Save Account Handler - FIXED
     document.getElementById('saveAccount').addEventListener('click', function () {
         const saveBtn = this;
@@ -132,17 +181,11 @@ function initializeUserManagement() {
         const imageFileInput = document.getElementById('userImage');
         const imageFile = imageFileInput?.files[0] || null;
 
-        // Validation
-        if (!fullName || !email) {
-            alert('Please fill in all required fields.');
+        // Validation (JQUERY Validate)
+        if (!$('#accountForm').valid()) {
             return;
         }
-
-        if (password && password !== confirmPassword) {
-            alert('Passwords do not match.');
-            return;
-        }
-
+            
         // Disable button and show spinner
         saveBtn.disabled = true;
         saveBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Saving...`;
@@ -166,6 +209,9 @@ function initializeUserManagement() {
             url: url,
             type: method,
             data: formData,
+            headers: {
+            'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+        },
             processData: false,
             contentType: false,
             success: function (data) {
@@ -204,6 +250,9 @@ function initializeUserManagement() {
         $.ajax({
             url: `http://localhost:8080/api/v1/user/${userId}`,
             type: 'GET',
+            headers: {
+            'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+        },
             success: function (data) {
                 if (data.user) {
                     const user = data.user;
@@ -293,6 +342,9 @@ function initializeUserManagement() {
             $.ajax({
                 url: `http://localhost:8080/api/v1/user/${userId}`,
                 type: 'DELETE',
+                headers: {
+            'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+        },
                 success: function (data) {
                     alert(data.msg);
                     if (data.msg.includes('successfully')) {
@@ -367,6 +419,9 @@ function initializeUserManagement() {
                 $.ajax({
                     url: 'http://localhost:8080/api/v1/user/bulk/delete',
                     type: 'DELETE',
+                    headers: {
+            'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+        },
                     contentType: 'application/json',
                     data: JSON.stringify({ ids: userIds }),
                     success: function (res) {
@@ -441,6 +496,9 @@ function initializeUserManagement() {
                 $.ajax({
                     url: 'http://localhost:8080/api/v1/user/bulk/status',
                     type: 'PUT',
+                    headers: {
+            'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+        },
                     contentType: 'application/json',
                     data: JSON.stringify({ ids: userIds, status: status }),
                     success: function(res) {
@@ -456,4 +514,71 @@ function initializeUserManagement() {
             }
         });
     }
+}
+
+function logout() {
+    Swal.fire({
+                title: 'Sign Out Confirmation 🚪',
+                text: 'Are you sure you want to sign out of your GemTry account?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#d4af37',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Sign Out',
+                cancelButtonText: 'Stay Signed In',
+                backdrop: true,
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    try {
+                        // Show signing out process
+                        Swal.fire({
+                            title: 'Signing You Out... 🔄',
+                            text: 'Securely logging you out of your account',
+                            icon: 'info',
+                            showConfirmButton: false,
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+
+                        // Simulate logout delay for better UX
+                        setTimeout(() => {
+                            // Clear session storage
+                            sessionStorage.removeItem('authToken');
+                            sessionStorage.removeItem('role');
+                            sessionStorage.removeItem('name');
+                            sessionStorage.removeItem('initial');
+                            
+                            
+                            
+                            // Success notification
+                            Swal.fire({
+                                title: 'Successfully Signed Out! 👋',
+                                text: 'Thank you for visiting GemTry. Come back soon for more beautiful jewelry!',
+                                icon: 'success',
+                                confirmButtonColor: '#d4af37',
+                                confirmButtonText: 'Browse More',
+                                timer: 4000,
+                                timerProgressBar: true
+                            }).then(() => {
+                                window.location.href = '../login.html';
+                            });
+                            1500
+                        });
+                        
+                    } catch (error) {
+                        console.error('Logout error:', error);
+                        Swal.fire({
+                            title: 'Sign Out Error! ⚠️',
+                            text: 'We encountered an issue while signing you out. Please try closing your browser for security.',
+                            icon: 'error',
+                            confirmButtonColor: '#dc3545',
+                            confirmButtonText: 'I Understand',
+                            footer: '<small>For security, please close your browser session</small>'
+                        });
+                    }
+                }
+            });
 }

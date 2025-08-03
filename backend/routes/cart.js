@@ -5,7 +5,7 @@ const { getCart, addToCart, updateCartItem, removeFromCart, clearCart, getCartCo
 
 // Cart main routes
 router.route('/')
-    .get( getCart);
+    .get(isAuthenticatedUser, authorizeRoles('user'), getCart);
 
 // Add to cart route
 router.route('/add')
@@ -13,21 +13,21 @@ router.route('/add')
 
 // Update cart route
 router.route('/update')
-    .put( updateCartItem);
+    .put(isAuthenticatedUser, authorizeRoles('user'), updateCartItem);
 
 // Remove specific item route
 router.route('/remove/:cart_id')
-    .delete( removeFromCart);
+    .delete(isAuthenticatedUser, authorizeRoles('user'), removeFromCart);
 
 // Clear cart route
 router.route('/clear')
-    .delete( clearCart);
+    .delete(isAuthenticatedUser, authorizeRoles('user'), clearCart);
 
 // Cart count route
 router.route('/count')
-    .get( getCartCount);
+    .get(isAuthenticatedUser, authorizeRoles('user'), getCartCount);
 
 router.route('/checkout')
-    .get(cartCheckout);
+    .get(isAuthenticatedUser, authorizeRoles('user'), cartCheckout);
     
 module.exports = router;

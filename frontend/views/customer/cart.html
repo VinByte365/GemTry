@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Cart - GemTry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../../css/customer/cart.css">
+    <link rel="stylesheet" href="../../css/customer/homepage.css">
+</head>
+<body>
+    <!-- Header/Navbar -->
+    <header id="header">
+        <div class="navbar">
+            <div class="logo">GemTry</div>
+            
+            <div class="mobile-menu-toggle" id="mobileToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            
+            <div class="nav-links" id="navLinks">
+                <a href="index.html">Home</a>
+                <a href="shop.html">Shop</a>
+            </div>
+            
+            <!-- Guest Navigation (default hidden if logged in) -->
+            <div class="nav-icons" id="guestNav">
+                <i class="fas fa-search" title="Search"></i>
+                <a href="../login.html" class="login-btn" id="loginBtn">Login</a>
+            </div>
+
+            <!-- User Navigation (hidden by default, shown when logged in) -->
+            <div class="nav-icons hidden" id="userNav">
+                <div class="user-welcome">
+                    <span>Welcome back,</span>
+                    <span id="userName">Guest</span>
+                </div>
+                <i class="fas fa-search" title="Search"></i>
+                <div class="cart-badge">
+                    <i class="fas fa-shopping-bag" title="Shopping Cart" onclick="window.location.href='cart.html'"></i>
+                    <span class="cart-count hidden" id="userCartCount">0</span>
+                </div>
+                <div class="user-dropdown">
+                    <div class="user-avatar" id="userAvatar">G</div>
+                    <div class="dropdown-menu" id="dropdownMenu">
+                        <a href="../user/profile.html" class="dropdown-item">
+                            <i class="fas fa-user"></i>
+                            My Profile
+                        </a>
+                        <a href="../user/orders.html" class="dropdown-item">
+                            <i class="fas fa-box"></i>
+                            My Orders
+                        </a>
+                        <a href="../user/settings.html" class="dropdown-item">
+                            <i class="fas fa-cog"></i>
+                            Settings
+                        </a>
+                        <a href="#" class="dropdown-item" id="logoutBtn">
+                            <i class="fas fa-sign-out-alt"></i>
+                            Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Cart Section -->
+    <section class="cart-section">
+        <div class="container">
+            <h1>Shopping Cart</h1>
+            
+            <div class="cart-container">
+                <!-- Cart Items -->
+                <div class="cart-items" id="cartItems">
+                    <!-- Items will be loaded here via JavaScript -->
+                </div>
+
+                <!-- Cart Summary -->
+                <div class="cart-summary">
+                    <h2>Order Summary</h2>
+                    <div class="summary-item">
+                        <span>Subtotal</span>
+                        <span id="subtotal">₱0.00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span>Shipping</span>
+                        <span id="shipping">₱0.00</span>
+                    </div>
+                    <div class="summary-total">
+                        <span>Total</span>
+                        <span id="total">₱0.00</span>
+                    </div>
+                    <button class="checkout-btn" id="checkoutBtn">
+                        Proceed to Checkout
+                    </button>
+                    <a href="index.html">   
+                    <button class="continue-shopping">
+                        <i class="fas fa-arrow-left"></i>
+                        Continue Shopping
+                    </button>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Empty Cart Message -->
+            <div class="empty-cart hidden" id="emptyCart">
+                <i class="fas fa-shopping-cart"></i>
+                <h2>Your cart is empty</h2>
+                <p>Browse our collections and discover our best deals!</p>
+                <a href="index.html" class="cta-button">Start Shopping</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-column">
+                <h3>GemTry</h3>
+                <p>Crafting timeless jewelry pieces. Each creation tells a story of elegance, passion, and uncompromising quality that speaks to the heart.</p>
+            </div>      
+        </div>
+        <div class="copyright">
+            <p>&copy; 2025 GemTry Jewelry. All rights reserved. | Crafted with passion in the Philippines</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="../../js/customer/cart.js"></script>
+    <script src="../../js/customer/homepage.js"></script>
+</body>
+</html>

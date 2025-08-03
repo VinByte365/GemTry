@@ -1,206 +1,246 @@
+
 const db = require('../config/database');
 
 // Add item to cart
-exports.addToCart = async (req, res) => {
-    try {
-        console.log('req.user:', req.user);
-        const { item_id, quantity } = req.body;
+exports.addToCart = (req, res) => {
+    
+    const { item_id, quantity } = req.body;
 
-        if (!item_id || !quantity) {
-            return res.status(400).json({
+    if (!item_id || !quantity) {
+        return res.status(400).json({
+            success: false,
+            message: 'Missing required fields: item_id and quantity are required.'
+        });
+    }
+
+    const checkQuery = 'SELECT * FROM cart WHERE user_id = ? AND item_id = ?';
+    db.query(checkQuery, [user_id, item_id], (err, results) => {
+        if (err) {
+            console.error('❌ Check cart error:', err);
+            return res.status(500).json({
                 success: false,
-                message: 'Missing required fields: item_id and quantity are required.'
+                message: 'Failed to check cart',
+                error: err.message
             });
         }
 
-        const user_id = req.user?.id;
-        if (!user_id) {
-            return res.status(401).json({
-                success: false,
-                message: 'Unauthorized. User not authenticated.'
+        if (results.length > 0) {
+            // Item exists, update quantity
+            const updateQuery = 'UPDATE cart SET quantity = quantity + ? WHERE user_id = ? AND item_id = ?';
+            db.query(updateQuery, [quantity, user_id, item_id], (err2) => {
+                if (err2) {
+                    console.error('❌ Update cart error:', err2);
+                    return res.status(500).json({
+                        success: false,
+                        message: 'Failed to update cart',
+                        error: err2.message
+                    });
+                }
+                return sendCartCount(res, user_id);
             });
-        }
-
-        // Check if item already exists in cart
-        const [existingItem] = await db.query(
-            'SELECT * FROM cart WHERE user_id = ? AND item_id = ?',
-            [user_id, item_id]
-        );
-
-        if (existingItem.length > 0) {
-            // Update quantity if item exists
-            await db.query(
-                'UPDATE cart SET quantity = quantity + ? WHERE user_id = ? AND item_id = ?',
-                [quantity, user_id, item_id]
-            );
         } else {
-            // Add new item to cart
-            await db.query(
-                'INSERT INTO cart (user_id, item_id, quantity) VALUES (?, ?, ?)',
-                [user_id, item_id, quantity]
-            );
+            // Item not in cart, insert new
+            const insertQuery = 'INSERT INTO cart (user_id, item_id, quantity) VALUES (?, ?, ?)';
+            db.query(insertQuery, [user_id, item_id, quantity], (err3) => {
+                if (err3) {
+                    console.error('❌ Insert cart error:', err3);
+                    return res.status(500).json({
+                        success: false,
+                        message: 'Failed to add item to cart',
+                        error: err3.message
+                    });
+                }
+                return sendCartCount(res, user_id);
+            });
         }
+    });
+};
 
-        // Get updated cart count
-        const [cartCount] = await db.query(
-            'SELECT SUM(quantity) as count FROM cart WHERE user_id = ?',
-            [user_id]
-        );
+// Helper function to send updated cart count
+function sendCartCount(res, user_id) {
+    const countQuery = 'SELECT SUM(quantity) as count FROM cart WHERE user_id = ?';
+    db.query(countQuery, [user_id], (err, result) => {
+        if (err) {
+            console.error('❌ Cart count error:', err);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to retrieve cart count',
+                error: err.message
+            });
+        }
 
         res.status(200).json({
             success: true,
             message: 'Item added to cart successfully',
-            cartCount: cartCount[0].count || 0
+            cartCount: result[0].count || 0
         });
+    });
+}
 
-    } catch (error) {
-        console.error('❌ Add to cart error:', {
-            message: error.message,
-            stack: error.stack,
-            code: error.code || 'N/A'
-        });
-
-        let statusCode = 500;
-        let errorMessage = 'Something went wrong while adding the item to the cart.';
-
-        if (error.code === 'ER_DUP_ENTRY') {
-            statusCode = 409;
-            errorMessage = 'This item is already in the cart.';
-        }
-
-        res.status(statusCode).json({
-            success: false,
-            message: errorMessage,
-            error: error.message
-        });
-    }
-};
 
 // Get cart items
-exports.getCart = async (req, res) => {
-    try {
-        const user_id = req.user.id;
+exports.getCart = (req, res) => {
+    const user_id = req.user.id;
 
-        const [cartItems] = await db.query(
-            `SELECT c.cart_id, c.quantity, 
-                    p.item_id, p.item_name, p.item_price, p.item_img,
-                    p.stock_qty,
-                    (p.item_price * c.quantity) as subtotal
-             FROM cart c
-             JOIN products p ON c.item_id = p.item_id
-             WHERE c.user_id = ?`,
-            [user_id]
-        );
+    const cartQuery = `
+        SELECT c.cart_id, c.quantity, 
+               i.item_id, i.item_name, i.item_price, i.item_img,
+               s.qty AS stock_qty,
+               (i.item_price * c.quantity) as subtotal
+        FROM cart c
+        JOIN items i ON c.item_id = i.item_id
+        LEFT JOIN stocks s ON i.item_id = s.item_id
+        WHERE c.user_id = ?
+    `;
 
-        const [total] = await db.query(
-            `SELECT SUM(p.item_price * c.quantity) as total
-             FROM cart c
-             JOIN products p ON c.item_id = p.item_id
-             WHERE c.user_id = ?`,
-            [user_id]
-        );
+    const totalQuery = `
+        SELECT SUM(i.item_price * c.quantity) as total
+        FROM cart c
+        JOIN items i ON c.item_id = i.item_id
+        WHERE c.user_id = ?
+    `;
 
-        res.status(200).json({
-            success: true,
-            cartItems,
-            total: total[0].total || 0
+    db.query(cartQuery, [user_id], (err, cartItems) => {
+        if (err) {
+            console.error('❌ Error fetching cart items:', err);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to fetch cart items',
+                error: err.message
+            });
+        }
+
+        db.query(totalQuery, [user_id], (err2, totalResult) => {
+            if (err2) {
+                console.error('❌ Error calculating total:', err2);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Failed to calculate total',
+                    error: err2.message
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                cartItems,
+                total: totalResult[0].total || 0
+            });
         });
-    } catch (error) {
-        console.error('Get cart error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to fetch cart items',
-            error: error.message
-        });
-    }
+    });
 };
 
 // Update cart item quantity
-exports.updateCartItem = async (req, res) => {
-    try {
-        const { cart_id, quantity } = req.body;
-        const user_id = req.user.id;
+exports.updateCartItem = (req, res) => {
+    const { cart_id, quantity } = req.body;
+    const user_id = req.user.id;
+console.log('Updating cart item:', cart_id, 'for user:', user_id);
+    // Verify cart item belongs to user
+    db.query('SELECT * FROM cart WHERE cart_id = ? AND user_id = ?', [cart_id, user_id], (err, results) => {
+        if (err) {
+            console.error('Select cart item error:', err);
+            return res.status(500).json({
+                success: false,
+                message: 'Database error',
+                error: err.message
+            });
+        }
 
-        // Verify cart item belongs to user
-        const [cartItem] = await db.query(
-            'SELECT * FROM cart WHERE cart_id = ? AND user_id = ?',
-            [cart_id, user_id]
-        );
-
-        if (cartItem.length === 0) {
+        if (results.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'Cart item not found'
             });
         }
 
-        // Check if quantity is valid
         if (quantity <= 0) {
-            // If quantity is 0 or negative, remove item from cart
-            await db.query(
-                'DELETE FROM cart WHERE cart_id = ?',
-                [cart_id]
-            );
-        } else {
-            // Update quantity
-            await db.query(
-                'UPDATE cart SET quantity = ? WHERE cart_id = ?',
-                [quantity, cart_id]
-            );
-        }
+            // Delete the item if quantity is 0 or negative
+            db.query('DELETE FROM cart WHERE cart_id = ?', [cart_id], (deleteErr) => {
+                if (deleteErr) {
+                    console.error('Delete cart item error:', deleteErr);
+                    return res.status(500).json({
+                        success: false,
+                        message: 'Failed to remove item from cart',
+                        error: deleteErr.message
+                    });
+                }
 
-        res.status(200).json({
-            success: true,
-            message: quantity <= 0 ? 'Item removed from cart' : 'Cart updated successfully'
-        });
-    } catch (error) {
-        console.error('Update cart error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to update cart',
-            error: error.message
-        });
-    }
+                return res.status(200).json({
+                    success: true,
+                    message: 'Item removed from cart'
+                });
+            });
+        } else {
+            // Update the quantity
+            db.query('UPDATE cart SET quantity = ? WHERE cart_id = ?', [quantity, cart_id], (updateErr) => {
+                if (updateErr) {
+                    console.error('Update cart error:', updateErr);
+                    return res.status(500).json({
+                        success: false,
+                        message: 'Failed to update cart',
+                        error: updateErr.message
+                    });
+                }
+
+                return res.status(200).json({
+                    success: true,
+                    message: 'Cart updated successfully'
+                });
+            });
+        }
+    });
 };
+
 
 // Remove item from cart
-exports.removeFromCart = async (req, res) => {
-    try {
-        const { cart_id } = req.params;
-        const user_id = req.user.id;
+exports.removeFromCart = (req, res) => {
+    const { cart_id } = req.params;
+    const user_id = req.user.id;
+console.log('Removing item from cart:', cart_id, 'for user:', user_id);
+    // Verify cart item belongs to user
+    db.query(
+        'SELECT * FROM cart WHERE cart_id = ? AND user_id = ?',
+        [cart_id, user_id],
+        (err, results) => {
+            if (err) {
+                console.error('Database error during cart item lookup:', err);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Failed to verify cart item',
+                    error: err.message
+                });
+            }
 
-        // Verify cart item belongs to user
-        const [cartItem] = await db.query(
-            'SELECT * FROM cart WHERE cart_id = ? AND user_id = ?',
-            [cart_id, user_id]
-        );
+            if (results.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Cart item not found'
+                });
+            }
 
-        if (cartItem.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Cart item not found'
-            });
+            // Remove item from cart
+            db.query(
+                'DELETE FROM cart WHERE cart_id = ?',
+                [cart_id],
+                (deleteErr, deleteResults) => {
+                    if (deleteErr) {
+                        console.error('Database error during delete:', deleteErr);
+                        return res.status(500).json({
+                            success: false,
+                            message: 'Failed to remove item from cart',
+                            error: deleteErr.message
+                        });
+                    }
+
+                    res.status(200).json({
+                        success: true,
+                        message: 'Item removed from cart successfully'
+                    });
+                }
+            );
         }
-
-        // Remove item from cart
-        await db.query(
-            'DELETE FROM cart WHERE cart_id = ?',
-            [cart_id]
-        );
-
-        res.status(200).json({
-            success: true,
-            message: 'Item removed from cart successfully'
-        });
-    } catch (error) {
-        console.error('Remove from cart error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to remove item from cart',
-            error: error.message
-        });
-    }
+    );
 };
+
 
 // Clear cart
 exports.clearCart = async (req, res) => {
@@ -227,32 +267,40 @@ exports.clearCart = async (req, res) => {
 };
 
 // Get cart count
-exports.getCartCount = async (req, res) => {
-    try {
-        const user_id = req.user.id;
+exports.getCartCount = (req, res) => {
+    const user_id = req.user?.id;
 
-        const [result] = await db.query(
-            'SELECT SUM(quantity) as count FROM cart WHERE user_id = ?',
-            [user_id]
-        );
+    if (!user_id) {
+        return res.status(401).json({
+            success: false,
+            message: 'Unauthorized. User not authenticated.'
+        });
+    }
+
+    const query = 'SELECT count(user_id) as count FROM cart WHERE user_id = ?';
+    db.query(query, [user_id], (err, result) => {
+        if (err) {
+            console.error('Get cart count error:', err);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to get cart count',
+                error: err.message
+            });
+        }
 
         res.status(200).json({
             success: true,
             count: result[0].count || 0
         });
-    } catch (error) {
-        console.error('Get cart count error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to get cart count',
-            error: error.message
-        });
-    }
+    });
 };
 
-// Checkout cart and create order
 exports.cartCheckout = (req, res) => {
-    const user_id = req.user.id;
+    const user_id = req.user?.id;
+
+    if (!user_id) {
+        return res.status(401).json({ success: false, message: 'Unauthorized. User not authenticated.' });
+    }
 
     db.getConnection((err, connection) => {
         if (err) {
@@ -266,7 +314,6 @@ exports.cartCheckout = (req, res) => {
                 return res.status(500).json({ success: false, message: 'Failed to start transaction' });
             }
 
-            // Step 1: Get cart items with current prices
             const getCartQuery = `
                 SELECT c.item_id, c.quantity, p.item_price
                 FROM cart c
@@ -275,21 +322,14 @@ exports.cartCheckout = (req, res) => {
             `;
 
             connection.query(getCartQuery, [user_id], (err, cartItems) => {
-                if (err) {
+                if (err || cartItems.length === 0) {
                     return connection.rollback(() => {
                         connection.release();
-                        return res.status(500).json({ success: false, message: 'Failed to retrieve cart items' });
+                        const msg = err ? 'Failed to retrieve cart items' : 'Cart is empty';
+                        return res.status(400).json({ success: false, message: msg });
                     });
                 }
 
-                if (cartItems.length === 0) {
-                    return connection.rollback(() => {
-                        connection.release();
-                        return res.status(400).json({ success: false, message: 'Cart is empty' });
-                    });
-                }
-
-                // Step 2: Insert into order table
                 const orderInsertQuery = `
                     INSERT INTO \`order\` (user_id, order_status, order_placed)
                     VALUES (?, 'PLACED', NOW())
@@ -304,14 +344,7 @@ exports.cartCheckout = (req, res) => {
                     }
 
                     const orderId = orderResult.insertId;
-
-                    // Step 3: Insert into orderline
-                    const orderlineValues = cartItems.map(item => [
-                        orderId,
-                        item.item_id,
-                        item.quantity,
-                        item.item_price
-                    ]);
+                    const orderlineValues = cartItems.map(item => [orderId, item.item_id, item.quantity, item.item_price]);
 
                     const orderlineInsertQuery = `
                         INSERT INTO orderline (order_id, item_id, qty, order_price)
@@ -326,7 +359,6 @@ exports.cartCheckout = (req, res) => {
                             });
                         }
 
-                        // Step 4: Clear user's cart
                         const clearCartQuery = `DELETE FROM cart WHERE user_id = ?`;
 
                         connection.query(clearCartQuery, [user_id], (err) => {
@@ -337,7 +369,6 @@ exports.cartCheckout = (req, res) => {
                                 });
                             }
 
-                            // Step 5: Commit transaction
                             connection.commit(err => {
                                 if (err) {
                                     return connection.rollback(() => {
@@ -360,5 +391,6 @@ exports.cartCheckout = (req, res) => {
         });
     });
 };
+
 
 

@@ -4,27 +4,27 @@ const path = require('path');
 const config = require('../config/server');
 
 // Helper function to get category ID by name
-async function getCategoryNameById(categoryId) {
-    return new Promise((resolve, reject) => {
-        const sql = 'SELECT category_name FROM categories WHERE category_id = ?';
-        db.execute(sql, [categoryId], (err, results) => {
-            if (err) return reject(err);
-            if (results.length === 0) return resolve(null);
-            resolve(results[0].category_name);
-        });
-    });
-}
+// async function getCategoryNameById(categoryId) {
+//     return new Promise((resolve, reject) => {
+//         const sql = 'SELECT category_name FROM categories WHERE category_id = ?';
+//         db.execute(sql, [categoryId], (err, results) => {
+//             if (err) return reject(err);
+//             if (results.length === 0) return resolve(null);
+//             resolve(results[0].category_name);
+//         });
+//     });
+// }
 
 // Helper function to create a new category
-async function createCategory(categoryName) {
-    return new Promise((resolve, reject) => {
-        const sql = 'INSERT INTO categories (category_name) VALUES (?)';
-        db.execute(sql, [categoryName], (err, result) => {
-            if (err) return reject(err);
-            resolve(result.insertId);
-        });
-    });
-}
+// async function createCategory(categoryName) {
+//     return new Promise((resolve, reject) => {
+//         const sql = 'INSERT INTO categories (category_name) VALUES (?)';
+//         db.execute(sql, [categoryName], (err, result) => {
+//             if (err) return reject(err);
+//             resolve(result.insertId);
+//         });
+//     });
+// }
 
 // Fetch all categories
 exports.fetchAllCategories = (req, res) => {

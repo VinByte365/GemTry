@@ -1,11 +1,21 @@
 $(document).ready(function () {
+    // DOM elements
     const productGrid = $('#productGrid');
     const productModal = $('#productModal');
     const productDetail = $('#productDetail');
     const modalClose = $('#modalClose');
+    const baseUrl = 'http://localhost:8080/';
+    // Initialize the application
+    initializeProducts();
 
+    function initializeProducts() {
+        checkAuthStatus();
+        renderProducts();
+        bindProductEvents();
+    }
 
- function checkAuthStatus() {
+    // Authentication status check
+    function checkAuthStatus() {
         const authToken = sessionStorage.getItem('authToken');
         const userName = sessionStorage.getItem('name');
         const userInitial = sessionStorage.getItem('initial');
@@ -22,126 +32,263 @@ $(document).ready(function () {
             if (userInitial) {
                 $('#userAvatar').text(userInitial);
             }
-            
-            // Fetch cart count for logged-in user
-            fetchCartCount();
+
+            if (!sessionStorage.getItem('swalWelcomeShown')) {
+                Swal.fire({
+                    title: `Welcome back, ${userName || 'Valued Customer'}! 👋`,
+                    text: 'Ready to discover more beautiful jewelry pieces?',
+                    icon: 'success',
+                    showConfirmButton: false,
+                    timer: 2500,
+                    timerProgressBar: true,
+                    toast: true,
+                    position: 'top-end',
+                    background: '#f8f9fa',
+                    color: '#212529'
+                });
+                sessionStorage.setItem('swalWelcomeShown', 'true');
+                sessionStorage.setItem('swalGuestShown', 'false');
+            }
+
         } else {
             // User is not logged in
             $('#guestNav').removeClass('hidden');
             $('#userNav').addClass('hidden');
+
+            if (!sessionStorage.getItem('swalGuestShown')) {
+            Swal.fire({
+                title: 'Browsing as Guest 👤',
+                text: 'Sign in to save favorites and track your orders!',
+                icon: 'info',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                toast: true,
+                position: 'top-end',
+                showCloseButton: true   
+            });
+                sessionStorage.setItem('swalGuestShown', 'true');
+                sessionStorage.setItem('swalWelcomeShown', 'false');
+            }
         }
     }
 
-    // Fetch cart count for authenticated user
-    function fetchCartCount() {
-        $.ajax({
-            url: 'http://localhost:8080/api/v1/cart/count',
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
-            },
-            success: function(response) {
-                $('.cart-count').text(response.count).removeClass('hidden');
-            },
-            error: function(xhr) {
-                console.error('Failed to fetch cart count:', xhr.responseText);
-                $('.cart-count').addClass('hidden');
+    // Handle logout functionality
+    function bindAuthEvents() {
+        $('#logoutBtn').on('click', function(e) {
+            e.preventDefault();
+            
+            // Confirmation dialog
+            Swal.fire({
+                title: 'Sign Out Confirmation 🚪',
+                text: 'Are you sure you want to sign out of your GemTry account?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#d4af37',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Sign Out',
+                cancelButtonText: 'Stay Signed In',
+                backdrop: true,
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    try {
+                        // Show signing out process
+                        Swal.fire({
+                            title: 'Signing You Out... 🔄',
+                            text: 'Securely logging you out of your account',
+                            icon: 'info',
+                            showConfirmButton: false,
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+
+                        // Simulate logout delay for better UX
+                        setTimeout(() => {
+                            // Clear session storage
+                            sessionStorage.removeItem('authToken');
+                            sessionStorage.removeItem('role');
+                            sessionStorage.removeItem('name');
+                            sessionStorage.removeItem('initial');
+                            
+                            // Update UI
+                            checkAuthStatus();
+                            
+                            // Success notification
+                            Swal.fire({
+                                title: 'Successfully Signed Out! 👋',
+                                text: 'Thank you for visiting GemTry. Come back soon for more beautiful jewelry!',
+                                icon: 'success',
+                                confirmButtonColor: '#d4af37',
+                                confirmButtonText: 'Browse More',
+                                timer: 4000,
+                                timerProgressBar: true
+                            });
+                        }, 1500);
+
+                    } catch (error) {
+                        console.error('Logout error:', error);
+                        Swal.fire({
+                            title: 'Sign Out Error! ⚠️',
+                            text: 'We encountered an issue while signing you out. Please try closing your browser for security.',
+                            icon: 'error',
+                            confirmButtonColor: '#dc3545',
+                            confirmButtonText: 'I Understand',
+                            footer: '<small>For security, please close your browser session</small>'
+                        });
+                    }
+                }
+            });
+        });
+
+        // Initialize dropdown menu toggle
+        $('#userAvatar').on('click', function() {
+            $('#dropdownMenu').toggleClass('active');
+        });
+
+        // Close dropdown when clicking outside
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('.user-dropdown').length) {
+                $('#dropdownMenu').removeClass('active');
             }
         });
     }
 
-    // Handle logout
-    $('#logoutBtn').on('click', function(e) {
-        e.preventDefault();
-        
-        // Clear session storage
-        sessionStorage.removeItem('authToken');
-        sessionStorage.removeItem('role');
-        sessionStorage.removeItem('name');
-        sessionStorage.removeItem('initial');
-        
-        // Update UI
-        checkAuthStatus();
-        
-        // Optional: Notify user
-        alert('You have been logged out successfully');
-    });
-
-    // Initialize dropdown menu toggle
-    $('#userAvatar').on('click', function() {
-        $('#dropdownMenu').toggleClass('active');
-    });
-
-    // Close dropdown when clicking outside
-    $(document).on('click', function(e) {
-        if (!$(e.target).closest('.user-dropdown').length) {
-            $('#dropdownMenu').removeClass('active');
-        }
-    });
-
-    // Check auth status when page loads
-    checkAuthStatus();
-    
     // Fetch and render products
     function renderProducts() {
+        // Show enhanced loading state
+        productGrid.html(`
+            <div class="loading-products">
+                <div class="loading-spinner"></div>
+                <p>Loading our finest jewelry collection...</p>
+            </div>
+        `);
+
         $.ajax({
             url: 'http://localhost:8080/api/v1/product',
             method: 'GET',
+            timeout: 10000,
             success: function (products) {
+                if (!products || products.length === 0) {
+                    showNoProducts();
+                    return;
+                }
+
                 const html = products.map(product => `
                     <div class="product-card" data-id="${product.item_id}">
                         <div class="product-image">
-                            <img src="${product.item_img}" 
+                            <img src="${baseUrl+product.item_img}" 
                                  alt="${escapeHtml(product.item_name)}"
                                  onerror="this.src='/images/placeholder.jpg'; this.onerror=null;">
                         </div>
                         <div class="product-info">
                             <h3 class="product-name">${escapeHtml(product.item_name)}</h3>
                             <p class="product-price">₱${formatPrice(product.item_price)}</p>
-                            <button class="add-to-cart" data-product-id="${product.item_id}">Add to Cart</button>
+                            <button class="add-to-cart" data-product-id="${product.item_id}" ${product.stock_qty <= 0 ? 'disabled' : ''}>
+                                ${product.stock_qty <= 0 ? 'Out of Stock' : 'Add to Cart'}
+                            </button>
                         </div>
                     </div>
                 `).join('');
 
                 productGrid.html(html);
-
-                // Add click event to product cards
-                $('.product-card').on('click', function (e) {
-                    // Don't trigger if clicking on the add to cart button
-                    if (!$(e.target).hasClass('add-to-cart')) {
-                        const productId = $(this).data('id');
-                        showProductDetail(productId);
-                    }
-                });
-
-                // Handle add to cart from grid
-                $('.add-to-cart').on('click', function (e) {
-                    e.stopPropagation();
-                    const productId = $(this).data('product-id');
-                    // Add your cart logic here
-                    console.log(`Quick add to cart: Product ${productId}`);
-                });
             },
             error: function (xhr, status, error) {
                 console.error('Error loading products:', error);
-                productGrid.html(`
-                    <div class="error-message">
-                        <h3>Failed to load products</h3>
-                        <p>Please check your connection and try again.</p>
-                        <button onclick="location.reload()" class="retry-btn">Retry</button>
-                    </div>
-                `);
+                
+                let errorTitle = 'Collection Loading Failed! 😞';
+                let errorText = 'We couldn\'t load our jewelry collection right now.';
+                
+                if (status === 'timeout') {
+                    errorTitle = 'Connection Timeout! ⏰';
+                    errorText = 'The request took too long. Please check your internet connection.';
+                } else if (xhr.status >= 500) {
+                    errorTitle = 'Server Maintenance! 🔧';
+                    errorText = 'Our servers are currently being maintained. Please try again in a few minutes.';
+                }
+                
+                showProductsError(errorText);
+                
+                Swal.fire({
+                    title: errorTitle,
+                    text: errorText,
+                    icon: 'error',
+                    confirmButtonColor: '#d4af37',
+                    confirmButtonText: 'Try Again',
+                    showCancelButton: true,
+                    cancelButtonText: 'Browse Later',
+                    footer: '<small>Our technical team has been notified</small>'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        location.reload();
+                    }
+                });
             }
         });
     }
 
-    // Show product detail modal - IMPROVED VERSION
+    // Show no products message
+    function showNoProducts() {
+        productGrid.html(`
+            <div class="no-products">
+                <div class="no-products-icon">📦</div>
+                <h3>No Products Available</h3>
+                <p>Check back later for new arrivals!</p>
+                <button onclick="location.reload()" class="retry-btn">Refresh</button>
+            </div>
+        `);
+
+        Swal.fire({
+            title: 'Collection Temporarily Empty 📦',
+            text: 'We\'re restocking our beautiful jewelry collection. New pieces coming soon!',
+            icon: 'info',
+            confirmButtonColor: '#d4af37',
+            confirmButtonText: 'Notify Me',
+            showCancelButton: true,
+            cancelButtonText: 'Browse Later',
+            footer: '<small>Follow us on social media for restock updates</small>'
+        });
+    }
+
+    // Show products loading error
+    function showProductsError(message) {
+        productGrid.html(`
+            <div class="error-message">
+                <div class="error-icon">⚠️</div>
+                <h3>Oops!</h3>
+                <p>${message}</p>
+                <button onclick="location.reload()" class="retry-btn">Retry</button>
+            </div>
+        `);
+    }
+
+    // Bind product-related events
+    function bindProductEvents() {
+        // Product card click to show detail
+        $(document).on('click', '.product-card', function (e) {
+            // Don't trigger if clicking on the add to cart button
+            if (!$(e.target).hasClass('add-to-cart')) {
+                const productId = $(this).data('id');
+                showProductDetail(productId);
+            }
+        });
+
+        // Modal close events
+        bindModalEvents();
+        
+        // Auth events
+        bindAuthEvents();
+    }
+
+    // Show product detail modal
     function showProductDetail(productId) {
-        // Show loading state
+        // Show loading state with enhanced message
         const loadingHTML = `
             <div class="product-detail-loading">
                 <div class="loading-spinner"></div>
-                <p>Loading product details...</p>
+                <p>Loading exquisite details...</p>
             </div>
         `;
         
@@ -152,7 +299,7 @@ $(document).ready(function () {
         $.ajax({
             url: `http://localhost:8080/api/v1/product/${productId}`,
             method: 'GET',
-            timeout: 10000, // 10 second timeout
+            timeout: 10000,
             success: function (data) {
                 try {
                     const product = data.product;
@@ -164,10 +311,14 @@ $(document).ready(function () {
                     }
 
                     // Handle image paths with fallback
-                    const mainImage = product.item_img || '/images/placeholder.jpg';
+                    const mainImage = product.item_img 
+                        ? baseUrl + product.item_img 
+                        : baseUrl + 'images/placeholder.jpg';
+                                    
                     const galleryImages = gallery
-                        .filter(g => g.item_path) // Filter out null/undefined paths
-                        .map(g => g.item_path);
+                        .filter(g => g.item_path)
+                        .map(g => baseUrl + g.item_path);
+
                     
                     const allImages = [mainImage, ...galleryImages];
 
@@ -244,6 +395,15 @@ $(document).ready(function () {
                 } catch (error) {
                     console.error('Error processing product data:', error);
                     showProductError('Failed to process product information.');
+                    
+                    Swal.fire({
+                        title: 'Data Processing Error! 🔧',
+                        text: 'We couldn\'t process this product\'s information properly.',
+                        icon: 'error',
+                        confirmButtonColor: '#dc3545',
+                        confirmButtonText: 'Close',
+                        footer: '<small>Our team has been notified of this issue</small>'
+                    });
                 }
             },
             error: function (xhr, status, error) {
@@ -254,22 +414,47 @@ $(document).ready(function () {
                     responseText: xhr.responseText
                 });
                 
+                let errorTitle = 'Product Details Error! 😞';
                 let errorMessage = 'Failed to load product details.';
                 
                 if (xhr.status === 404) {
-                    errorMessage = 'Product not found.';
+                    errorTitle = 'Product Not Found! 🔍';
+                    errorMessage = 'This beautiful piece seems to have moved or is no longer available.';
                 } else if (xhr.status === 500) {
-                    errorMessage = 'Server error. Please try again later.';
+                    errorTitle = 'Server Error! 🔧';
+                    errorMessage = 'Our servers are experiencing issues. Please try again in a moment.';
                 } else if (status === 'timeout') {
-                    errorMessage = 'Request timed out. Please check your connection.';
+                    errorTitle = 'Loading Timeout! ⏰';
+                    errorMessage = 'The product details are taking too long to load. Please check your connection.';
                 }
                 
                 showProductError(errorMessage);
+                
+                Swal.fire({
+                    title: errorTitle,
+                    text: errorMessage,
+                    icon: 'error',
+                    confirmButtonColor: '#d4af37',
+                    confirmButtonText: 'Browse Other Items',
+                    showCancelButton: true,
+                    cancelButtonText: 'Try Again',
+                    footer: '<small>Our technical team has been notified</small>'
+                }).then((result) => {
+                    if (result.isDismissed && result.dismiss === Swal.DismissReason.cancel) {
+                        // Try again
+                        setTimeout(() => {
+                            showProductDetail(productId);
+                        }, 1000);
+                    } else {
+                        // Close modal and browse other items
+                        closeProductModal();
+                    }
+                });
             }
         });
     }
 
-    // Helper function to initialize image gallery
+    // Initialize image gallery functionality
     function initializeImageGallery() {
         const mainImage = $('#mainImage');
         const imageLoader = $('#imageLoader');
@@ -322,87 +507,147 @@ $(document).ready(function () {
         });
     }
 
-    // Helper function to initialize product actions
+    // Initialize product actions (quantity controls)
     function initializeProductActions(productId, product) {
-        // Add to cart functionality (detailed view)
-        $('.add-to-cart-detail').off('click').on('click', function() {
-            const quantity = parseInt($('#quantity').val()) || 1;
-            const maxStock = product.stock_qty || 0;
-            
-            if (quantity > maxStock) {
-                alert(`Only ${maxStock} items available in stock.`);
-                return;
-            }
-            
-            const button = $(this);
-            const originalText = button.text();
-            button.prop('disabled', true).text('Adding...');
-
-            $.ajax({
-                url: 'http://localhost:8080/api/v1/cart/add',
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
-                },
-                data: JSON.stringify({
-                    item_id: productId,
-                    quantity: quantity
-                }),
-                contentType: 'application/json',
-                success: function(response) {
-                    button.text('Added!');
-                    
-                    // Optional: Update cart counter if you have one
-                    if (response.cartCount) {
-                        $('.cart-count').text(response.cartCount);
-                    }
-                    
-                    setTimeout(() => {
-                        button.text(originalText).prop('disabled', false);
-                    }, 2000);
-                },
-                error: function(xhr, status, error) {
-                    let errorMessage = 'Failed to add item to cart';
-                    
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        errorMessage = xhr.responseJSON.message;
-                    }
-                    
-                    alert(errorMessage);
-                    button.text(originalText).prop('disabled', false);
-                }
-            });
-        });
-        
-        
-        // Quantity validation
+        // Quantity validation with enhanced feedback
         $('#quantity').on('change input', function() {
             const value = parseInt($(this).val());
             const max = parseInt($(this).attr('max'));
             
             if (value > max) {
                 $(this).val(max);
-                alert(`Maximum quantity available: ${max}`);
+                Swal.fire({
+                    title: 'Quantity Limit Reached! 📦',
+                    text: `Only ${max} pieces available in stock for this beautiful item.`,
+                    icon: 'warning',
+                    confirmButtonColor: '#d4af37',
+                    confirmButtonText: 'I Understand',
+                    timer: 3000,
+                    timerProgressBar: true
+                });
             } else if (value < 1 || isNaN(value)) {
                 $(this).val(1);
+                Swal.fire({
+                    title: 'Invalid Quantity! ❌',
+                    text: 'Please select at least 1 piece to add to your cart.',
+                    icon: 'error',
+                    confirmButtonColor: '#dc3545',
+                    confirmButtonText: 'Got It',
+                    timer: 2000
+                });
+            } else {
+                // Valid quantity selected
+                Swal.fire({
+                    title: 'Quantity Updated! ✅',
+                    text: `${value} piece${value > 1 ? 's' : ''} selected`,
+                    icon: 'success',
+                    showConfirmButton: false,
+                    timer: 1000,
+                    toast: true,
+                    position: 'bottom-end'
+                });
             }
         });
     }
 
-    // Helper function to show error state
+    // Show error state in product detail modal
     function showProductError(message) {
         const errorHTML = `
             <div class="product-detail-error">
                 <div class="error-icon">⚠️</div>
                 <h3>Oops!</h3>
                 <p>${message}</p>
-                <button class="retry-btn" onclick="productModal.hide(); $('body').css('overflow', 'auto');">Close</button>
+                <button class="retry-btn" onclick="closeProductModal()">Close</button>
             </div>
         `;
         
         productDetail.html(errorHTML);
     }
+
+    // Modal event bindings
+    function bindModalEvents() {
+        // Modal close button
+        modalClose.on('click', function () {
+            closeProductModal();
+        });
+
+        // Click outside modal to close
+        productModal.on('click', function (e) {
+            if (e.target === this) {
+                closeProductModal();
+            }
+        });
+
+        // ESC key to close modal
+        $(document).on('keydown', function(e) {
+            if (e.key === 'Escape' && productModal.is(':visible')) {
+                closeProductModal();
+            }
+        });
+    }
+
+    // Close product modal
+    function closeProductModal() {
+        productModal.hide();
+        cleanupModal();
+    }
+
+    // Clean up modal state
+    function cleanupModal() {
+        $('body').css('overflow', 'auto');
+        $(document).off('keydown.gallery');
+    }
+
+    // Global quantity adjustment function
+    window.adjustQuantity = function(change) {
+        const quantityInput = $('#quantity');
+        const currentValue = parseInt(quantityInput.val()) || 1;
+        const min = parseInt(quantityInput.attr('min')) || 1;
+        const max = parseInt(quantityInput.attr('max')) || 999;
+        
+        const newValue = currentValue + change;
+        
+        if (newValue >= min && newValue <= max) {
+            quantityInput.val(newValue);
+            
+            // Quantity adjustment feedback
+            Swal.fire({
+                title: `Quantity ${change > 0 ? 'Increased' : 'Decreased'}! ${change > 0 ? '➕' : '➖'}`,
+                text: `Now selecting ${newValue} piece${newValue > 1 ? 's' : ''}`,
+                icon: 'success',
+                showConfirmButton: false,
+                timer: 1000,
+                toast: true,
+                position: 'bottom-end'
+            });
+        } else {
+            // Quantity limit feedback
+            if (newValue > max) {
+                Swal.fire({
+                    title: 'Maximum Reached! 📦',
+                    text: `Only ${max} pieces available`,
+                    icon: 'warning',
+                    showConfirmButton: false,
+                    timer: 1500,
+                    toast: true,
+                    position: 'bottom-end'
+                });
+            } else {
+                Swal.fire({
+                    title: 'Minimum Quantity! 📝',
+                    text: 'At least 1 piece required',
+                    icon: 'info',
+                    showConfirmButton: false,
+                    timer: 1500,
+                    toast: true,
+                    position: 'bottom-end'
+                });
+            }
+        }
+    };
+
+    // Global function to close modal (for use in error states)
+    window.closeProductModal = closeProductModal;
 
     // Helper function to escape HTML
     function escapeHtml(text) {
@@ -421,51 +666,11 @@ $(document).ready(function () {
         });
     }
 
-    // Modal close actions
-    modalClose.on('click', function () {
-        productModal.hide();
-        $('body').css('overflow', 'auto');
-        $(document).off('keydown.gallery');
-    });
-
-    productModal.on('click', function (e) {
-        if (e.target === this) {
-            productModal.hide();
-            $('body').css('overflow', 'auto');
-            $(document).off('keydown.gallery');
-        }
-    });
-
-    // Clean up when modal is closed
-    productModal.on('hidden.bs.modal', function () {
-        $('body').css('overflow', 'auto');
-        $(document).off('keydown.gallery');
-    });
-
-    // ESC key to close modal
-    $(document).on('keydown', function(e) {
-        if (e.key === 'Escape' && productModal.is(':visible')) {
-            productModal.hide();
-            $('body').css('overflow', 'auto');
-            $(document).off('keydown.gallery');
-        }
-    });
-
-    // Global quantity adjustment function
-    window.adjustQuantity = function(change) {
-        const quantityInput = $('#quantity');
-        const currentValue = parseInt(quantityInput.val()) || 1;
-        const min = parseInt(quantityInput.attr('min')) || 1;
-        const max = parseInt(quantityInput.attr('max')) || 999;
-        
-        const newValue = currentValue + change;
-        
-        if (newValue >= min && newValue <= max) {
-            quantityInput.val(newValue);
-        }
+    // Public API for external access
+    window.productFunctions = {
+        renderProducts,
+        showProductDetail,
+        closeProductModal,
+        checkAuthStatus
     };
-
-    // Initialize the application
-    renderProducts();
 });
-

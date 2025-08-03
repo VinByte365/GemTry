@@ -143,6 +143,9 @@ function fetchDashboardData() {
         url: 'http://localhost:8080/api/v1/dashboard/stats',
         method: 'GET',
         dataType: 'json',
+        headers: {
+            'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+        },
         timeout: 30000, // 30 second timeout
         crossDomain: true,
         xhrFields: {
@@ -407,4 +410,71 @@ function viewOrder(orderId) {
 function refreshDashboard() {
     console.log('Manually refreshing dashboard...');
     fetchDashboardData();
+}
+
+function logout() {
+    Swal.fire({
+                title: 'Sign Out Confirmation 🚪',
+                text: 'Are you sure you want to sign out of your GemTry account?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#d4af37',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Sign Out',
+                cancelButtonText: 'Stay Signed In',
+                backdrop: true,
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    try {
+                        // Show signing out process
+                        Swal.fire({
+                            title: 'Signing You Out... 🔄',
+                            text: 'Securely logging you out of your account',
+                            icon: 'info',
+                            showConfirmButton: false,
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+
+                        // Simulate logout delay for better UX
+                        setTimeout(() => {
+                            // Clear session storage
+                            sessionStorage.removeItem('authToken');
+                            sessionStorage.removeItem('role');
+                            sessionStorage.removeItem('name');
+                            sessionStorage.removeItem('initial');
+                            
+                            
+                            
+                            // Success notification
+                            Swal.fire({
+                                title: 'Successfully Signed Out! 👋',
+                                text: 'Thank you for visiting GemTry. Come back soon for more beautiful jewelry!',
+                                icon: 'success',
+                                confirmButtonColor: '#d4af37',
+                                confirmButtonText: 'Browse More',
+                                timer: 4000,
+                                timerProgressBar: true
+                            }).then(() => {
+                                window.location.href = '../login.html';
+                            });
+                            1500
+                        });
+                        
+                    } catch (error) {
+                        console.error('Logout error:', error);
+                        Swal.fire({
+                            title: 'Sign Out Error! ⚠️',
+                            text: 'We encountered an issue while signing you out. Please try closing your browser for security.',
+                            icon: 'error',
+                            confirmButtonColor: '#dc3545',
+                            confirmButtonText: 'I Understand',
+                            footer: '<small>For security, please close your browser session</small>'
+                        });
+                    }
+                }
+            });
 }
