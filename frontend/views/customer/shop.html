@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
     <link rel="stylesheet" href="../../css/customer/shop.css">
     <link rel="stylesheet" href="../../css/customer/homepage.css">
     <link rel="stylesheet" href="../../css/customer/cart.css">
@@ -29,9 +30,14 @@
             <a href="shop.html" class="active">Shop</a>
         </div>
         
+        <!-- Search Container (always visible) -->
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search products...">
+            <i class="fas fa-search search-icon"></i>
+        </div>
+
         <!-- Guest Navigation (default hidden if logged in) -->
         <div class="nav-icons" id="guestNav">
-            <i class="fas fa-search" title="Search"></i>
             <a href="../login.html" class="login-btn" id="loginBtn">Login</a>
         </div>
 
@@ -41,8 +47,11 @@
                 <span>Welcome back,</span>
                 <span id="userName">Guest</span>
             </div>
-            <i class="fas fa-search" title="Search"></i>
             <i class="fas fa-heart" title="Wishlist"></i>
+            <div class="cart-badge">
+                <i class="fas fa-shopping-bag" title="Shopping Cart" onclick="window.location.href='cart.html'"></i>
+                <span class="cart-count hidden">0</span>
+            </div>
             <div class="user-dropdown">
                 <div class="user-avatar" id="userAvatar">G</div>
                 <div class="dropdown-menu" id="dropdownMenu">
@@ -50,7 +59,7 @@
                         <i class="fas fa-user"></i>
                         My Profile
                     </a>
-                    <a href="../user/orders.html" class="dropdown-item">
+                    <a href="../customer/orders.html" class="dropdown-item">
                         <i class="fas fa-box"></i>
                         My Orders
                     </a>
@@ -58,7 +67,7 @@
                         <i class="fas fa-cog"></i>
                         Settings
                     </a>
-                    <a href="#" class="dropdown-item" id="logoutBtn">
+                    <a href="#" onclick="logout()" class="dropdown-item" id="logoutBtn">
                         <i class="fas fa-sign-out-alt"></i>
                         Logout
                     </a>
@@ -178,7 +187,11 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
     <script src="../../js/customer/homepage.js"></script>
-    <script src="../../js/customer/cart.js"></script>
+    <script src="../../js/customer/shop.js"></script>
+    <script>
+       
+    </script>
 </body>
 </html>

@@ -1,0 +1,451 @@
+/* Orders Page Styles */
+:root {
+    --gold: #D4AF37;
+    --dark-gold: #B8860B;
+    --light-gold: #F4E4A6;
+    --black: #000000;
+    --off-white: #F8F9FA;
+    --gray: #333333;
+    --light-gray: #666666;
+    --white: #ffffff;
+    --shadow: 0 10px 30px rgba(0,0,0,0.1);
+    --shadow-hover: 0 20px 40px rgba(0,0,0,0.15);
+    --border-radius: 15px;
+    --transition: all 0.3s ease;
+}
+
+.orders-container {
+    padding: 120px 2rem 4rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.orders-header {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.orders-header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.5rem;
+    color: var(--black);
+    margin-bottom: 1rem;
+}
+
+.orders-header p {
+    color: var(--light-gray);
+    font-size: 1.1rem;
+}
+
+/* Order Filters */
+.orders-filters {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    gap: 1rem;
+}
+
+.filter-select {
+    padding: 0.75rem 1.5rem;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    background: white;
+    color: var(--gray);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.filter-select:hover {
+    border-color: var(--gold);
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+}
+
+.search-orders {
+    position: relative;
+    flex: 1;
+    max-width: 300px;
+}
+
+.search-orders input {
+    width: 100%;
+    padding: 0.75rem 2.5rem 0.75rem 1rem;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    transition: var(--transition);
+}
+
+.search-orders input:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+}
+
+.search-orders i {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--light-gray);
+}
+
+/* Orders List */
+.orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.order-card {
+    background: white;
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+}
+
+.order-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-hover);
+}
+
+.order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+}
+
+.order-id {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.2rem;
+    color: var(--black);
+}
+
+.order-date {
+    color: var(--light-gray);
+    font-size: 0.9rem;
+}
+
+.order-status {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.status-pending {
+    background: #FFF3CD;
+    color: #856404;
+}
+
+.status-processing {
+    background: #CCE5FF;
+    color: #004085;
+}
+
+.status-shipped {
+    background: #D4EDDA;
+    color: #155724;
+}
+
+.status-delivered {
+    background: #D1E7DD;
+    color: #0F5132;
+}
+
+.status-cancelled {
+    background: #F8D7DA;
+    color: #721C24;
+}
+
+.order-items {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+}
+
+.order-item {
+    flex: 0 0 80px;
+    position: relative;
+}
+
+.order-item img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid #eee;
+}
+
+.item-count {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: var(--gold);
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.order-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #eee;
+}
+
+.order-total {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--gold);
+}
+
+.order-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.view-details-btn {
+    padding: 0.75rem 1.5rem;
+    border: 2px solid var(--gold);
+    background: transparent;
+    color: var(--gold);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: var(--transition);
+    font-weight: 600;
+}
+
+.view-details-btn:hover {
+    background: var(--gold);
+    color: white;
+}
+
+.track-order-btn {
+    padding: 0.75rem 1.5rem;
+    background: var(--gold);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: var(--transition);
+    font-weight: 600;
+}
+
+.track-order-btn:hover {
+    background: var(--dark-gold);
+    transform: translateY(-2px);
+}
+
+/* Loading State */
+.loading-orders {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 0;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid var(--gold);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* No Orders State */
+.no-orders {
+    text-align: center;
+    padding: 4rem 0;
+}
+
+.no-orders-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    color: var(--gold);
+}
+
+.no-orders h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
+    color: var(--black);
+    margin-bottom: 1rem;
+}
+
+.no-orders p {
+    color: var(--light-gray);
+    margin-bottom: 2rem;
+}
+
+.shop-now-btn {
+    display: inline-block;
+    padding: 1rem 2rem;
+    background: var(--gold);
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: var(--transition);
+    font-weight: 600;
+}
+
+.shop-now-btn:hover {
+    background: var(--dark-gold);
+    transform: translateY(-2px);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .orders-filters {
+        flex-direction: column;
+    }
+
+    .filter-group {
+        width: 100%;
+    }
+
+    .filter-select {
+        flex: 1;
+    }
+
+    .search-orders {
+        width: 100%;
+        max-width: none;
+    }
+
+    .order-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+
+    .order-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .view-details-btn, .track-order-btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+/* Order Details Modal */
+.order-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    background: white;
+    width: 90%;
+    max-width: 800px;
+    margin: 50px auto;
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-close {
+    float: right;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--light-gray);
+}
+
+.modal-close:hover {
+    color: var(--gold);
+}
+
+.order-timeline {
+    margin: 2rem 0;
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 2rem;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -30px;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: #eee;
+}
+
+.timeline-item::after {
+    content: '';
+    position: absolute;
+    left: -34px;
+    top: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--gold);
+}
+
+.timeline-date {
+    font-size: 0.9rem;
+    color: var(--light-gray);
+    margin-bottom: 0.5rem;
+}
+
+.timeline-status {
+    font-weight: 600;
+    color: var(--black);
+}
+
+.timeline-description {
+    color: var(--light-gray);
+    font-size: 0.9rem;
+}
+
+.hidden {
+    display: none;
+}

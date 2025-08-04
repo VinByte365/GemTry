@@ -413,56 +413,23 @@ function refreshDashboard() {
 }
 
 function logout() {
-    Swal.fire({
-                title: 'Sign Out Confirmation 🚪',
-                text: 'Are you sure you want to sign out of your GemTry account?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#d4af37',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Yes, Sign Out',
-                cancelButtonText: 'Stay Signed In',
-                backdrop: true,
-                reverseButtons: true
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    try {
-                        // Show signing out process
-                        Swal.fire({
-                            title: 'Signing You Out... 🔄',
-                            text: 'Securely logging you out of your account',
-                            icon: 'info',
-                            showConfirmButton: false,
-                            allowOutsideClick: false,
-                            didOpen: () => {
-                                Swal.showLoading();
-                            }
-                        });
-
-                        // Simulate logout delay for better UX
-                        setTimeout(() => {
-                            // Clear session storage
-                            sessionStorage.removeItem('authToken');
-                            sessionStorage.removeItem('role');
-                            sessionStorage.removeItem('name');
-                            sessionStorage.removeItem('initial');
-                            
-                            
-                            
-                            // Success notification
-                            Swal.fire({
-                                title: 'Successfully Signed Out! 👋',
-                                text: 'Thank you for visiting GemTry. Come back soon for more beautiful jewelry!',
-                                icon: 'success',
-                                confirmButtonColor: '#d4af37',
-                                confirmButtonText: 'Browse More',
-                                timer: 4000,
-                                timerProgressBar: true
-                            }).then(() => {
-                                window.location.href = '../login.html';
-                            });
-                            1500
-                        });
+    try {
+                Swal.fire({
+                    title: 'Signing You Out...',
+                    html: 'Please wait while we securely log you out',
+                    timer: 1500,
+                    timerProgressBar: true,
+                    didOpen: () => {
+                        Swal.showLoading();
+                        sessionStorage.removeItem('authToken');
+                        sessionStorage.removeItem('role');
+                        sessionStorage.removeItem('name');
+                        sessionStorage.removeItem('initial');
+                    },
+                    willClose: () => {
+                        window.location.href = '../login.html';
+                    }
+                });
                         
                     } catch (error) {
                         console.error('Logout error:', error);
@@ -475,6 +442,4 @@ function logout() {
                             footer: '<small>For security, please close your browser session</small>'
                         });
                     }
-                }
-            });
-}
+    }

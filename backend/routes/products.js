@@ -11,7 +11,8 @@ const {
     updateProductDetails,
     fetchOneProduct,
     deleteProduct,
-    fetchAllCategories
+    fetchAllCategories,
+    searchProducts
 } = require('../controllers/products')
 
 router.route('/')
@@ -20,6 +21,9 @@ router.route('/')
 
 router.route('/categories')
     .get(fetchAllCategories)
+
+router.route('/search')
+    .get(searchProducts)
 
 router.route('/:id')
     .get(fetchOneProduct)

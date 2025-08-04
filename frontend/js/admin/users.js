@@ -46,15 +46,82 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 });
 
+// Global config for user management
+const userConfig = {
+    infiniteScroll: {
+        pageSize: 20,
+        currentPage: 1,
+        loading: false,
+        hasMore: true,
+        threshold: 200,
+        totalRecords: 0,
+        lastScrollPosition: 0
+    }
+};
+
+// Declare usersTable in wider scope
+let usersTable;
+
 function initializeUserManagement() {
-    // Initialize DataTable
-    const usersTable = $('#accountsTable').DataTable({
+    // Initialize the DataTable with proper configuration
+    usersTable = $('#accountsTable').DataTable({
+        serverSide: false, // Changed to false since we're handling pagination ourselves
+        processing: true,
+        paging: false,
+        scrollY: '65vh',
+        scrollCollapse: true,
+        scrollX: true,
+        responsive: true,
+        autoWidth: true,
+        info: true,
+        deferRender: true,
         ajax: {
             url: 'http://localhost:8080/api/v1/user',
-            dataSrc: '',
-            headers: {
-            'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
-        },
+            type: 'GET',
+            headers: { 
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+            },
+            data: function(d) {
+                // Add all DataTables parameters
+                return {
+                    page: userConfig.infiniteScroll.currentPage,
+                    limit: userConfig.infiniteScroll.pageSize,
+                    search: d.search?.value,
+                    order: d.order?.[0]?.dir || 'desc',
+                    orderBy: d.columns?.[d.order?.[0]?.column]?.data || 'user_id'
+                };
+            },
+            dataSrc: function(json) {
+                console.log('Server response:', json); // Debug log
+                
+                if (!json) {
+                    console.error('No data received');
+                    userConfig.infiniteScroll.loading = false;
+                    return [];
+                }
+                
+                // Handle both array and object responses
+                const data = Array.isArray(json) ? json : (json.data || []);
+                
+                // Update infinite scroll state
+                userConfig.infiniteScroll.hasMore = data.length >= userConfig.infiniteScroll.pageSize;
+                userConfig.infiniteScroll.loading = false;
+                userConfig.infiniteScroll.totalRecords = data.length;
+                
+                // Set total records for DataTables
+                if (json.recordsTotal !== undefined) {
+                    userConfig.infiniteScroll.totalRecords = json.recordsTotal;
+                }
+                
+                // Modify the json object to include DataTables required properties
+                if (!json.recordsTotal) {
+                    json.recordsTotal = userConfig.infiniteScroll.totalRecords;
+                    json.recordsFiltered = userConfig.infiniteScroll.totalRecords;
+                    json.data = data;
+                }
+                
+                return data;
+            },
             error: function (xhr, error, thrown) {
                 console.error('DataTable error:', error);
                 alert('Error loading users. Please refresh the page.');
@@ -67,15 +134,20 @@ function initializeUserManagement() {
                     return `<input type="checkbox" class="user-checkbox" value="${row.user_id}">`;
                 },
                 orderable: false,
-                searchable: false
+                searchable: false,
+                width: '30px',
+                className: 'text-center'
             },
             {
                 data: 'user_id',
-                title: 'ID'
+                title: 'ID',
+                width: '50px',
+                className: 'text-center'
             },
             {
                 data: 'name',
                 title: 'Name',
+                width: '200px',
                 render: function (data, type, row) {
                     const imageHtml = row.img ?
                         `<img src="/${row.img}" alt="${data}" class="user-avatar me-2" style="width: 32px; height: 32px; object-fit: cover; border-radius: 50%;">` :
@@ -85,11 +157,14 @@ function initializeUserManagement() {
             },
             {
                 data: 'email',
-                title: 'Email'
+                title: 'Email',
+                width: '200px'
             },
             {
                 data: 'role',
                 title: 'Role',
+                width: '100px',
+                className: 'text-center',
                 render: function (data) {
                     const role = data || 'user';
                     let badgeClass = 'badge bg-secondary';
@@ -104,6 +179,8 @@ function initializeUserManagement() {
             {
                 data: 'status',
                 title: 'Status',
+                width: '100px',
+                className: 'text-center',
                 render: function (data) {
                     const isActive = parseInt(data) === 1;
                     const statusText = isActive ? 'Active' : 'Inactive';
@@ -114,6 +191,8 @@ function initializeUserManagement() {
             {
                 data: 'created_at',
                 title: 'Joined',
+                width: '100px',
+                className: 'text-center',
                 render: function (data) {
                     if (!data) return 'N/A';
                     return new Date(data).toLocaleDateString();
@@ -122,6 +201,8 @@ function initializeUserManagement() {
             {
                 data: null,
                 title: 'Actions',
+                width: '100px',
+                className: 'text-center',
                 render: function (data, type, row) {
                     return `
                         <div class="btn-group" role="group">
@@ -145,11 +226,12 @@ function initializeUserManagement() {
         language: {
             search: "Search users:",
             lengthMenu: "Show _MENU_ users per page",
-            info: "Showing _START_ to _END_ of _TOTAL_ users",
-            infoEmpty: "Showing 0 to 0 of 0 users",
-            infoFiltered: "(filtered from _MAX_ total users)",
-            emptyTable: "No users found",
-            zeroRecords: "No matching users found"
+            info: "_START_ to _END_ of _TOTAL_ users",
+            infoEmpty: "No users found",
+            infoFiltered: "",
+            emptyTable: '<div class="text-center p-3"><i class="bi bi-people text-muted display-4"></i><p class="mt-2">No users found</p></div>',
+            zeroRecords: '<div class="text-center p-3"><i class="bi bi-search text-muted display-4"></i><p class="mt-2">No matching users found</p></div>',
+            loadingRecords: '<div class="text-center p-3"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Loading users...</p></div>'
         },
         drawCallback: function (settings) {
             // Update select all checkbox state
@@ -157,11 +239,77 @@ function initializeUserManagement() {
             const checkedCheckboxes = $('.user-checkbox:checked');
             $('#selectAll').prop('indeterminate', checkedCheckboxes.length > 0 && checkedCheckboxes.length < allCheckboxes.length);
             $('#selectAll').prop('checked', checkedCheckboxes.length === allCheckboxes.length && allCheckboxes.length > 0);
+            
+            // Update loading state
+            const loadingSpinner = $('#loadingSpinner');
+            if (userConfig.infiniteScroll.loading) {
+                loadingSpinner.show();
+            } else {
+                loadingSpinner.hide();
+            }
+
+            // Update info text with proper total and "+" sign when there's more
+            const info = $('.dataTables_info');
+            if (info.length) {
+                const currentInfo = info.text();
+                if (currentInfo.includes(' to ')) {
+                    const [start, rest] = currentInfo.split(' to ');
+                    const [end, total] = rest.split(' of ');
+                    if (userConfig.infiniteScroll.hasMore) {
+                        info.text(`${start} to ${end} of ${userConfig.infiniteScroll.totalRecords}+ users`);
+                    } else {
+                        info.text(`${start} to ${end} of ${userConfig.infiniteScroll.totalRecords} users`);
+                    }
+                }
+            }
         }
     });
 
+    // Setup infinite scroll
+    function setupInfiniteScroll() {
+        const scrollContainer = $('.dataTables_scrollBody');
+        let scrollTimeout;
+        
+        // Remove any existing scroll handlers
+        scrollContainer.off('scroll.infiniteScroll');
+        
+        // Add new scroll handler with namespace
+        scrollContainer.on('scroll.infiniteScroll', () => {
+            // Don't load more if already loading or no more data
+            if (userConfig.infiniteScroll.loading || !userConfig.infiniteScroll.hasMore) return;
 
-    
+            const container = scrollContainer[0];
+            const scrollPos = container.scrollTop;
+            const scrollHeight = container.scrollHeight;
+            const viewportHeight = scrollContainer.height();
+            const distanceFromBottom = scrollHeight - scrollPos - viewportHeight;
+            const scrolledDown = scrollPos > userConfig.infiniteScroll.lastScrollPosition;
+
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                if (distanceFromBottom < userConfig.infiniteScroll.threshold && scrolledDown) {
+                    // Update state before loading
+                    userConfig.infiniteScroll.currentPage++;
+                    userConfig.infiniteScroll.loading = true;
+                    userConfig.infiniteScroll.lastScrollPosition = scrollPos;
+                    
+                    // Show loading spinner
+                    $('#loadingSpinner').show();
+                    
+                    // Reload with callback to handle errors
+                    usersTable.ajax.reload((json) => {
+                        if (!json || (Array.isArray(json) && !json.length)) {
+                            userConfig.infiniteScroll.hasMore = false;
+                        }
+                        $('#loadingSpinner').hide();
+                    }, false); // false to maintain scroll position
+                }
+            }, 100);
+        });
+    }
+
+    // Initialize infinite scroll
+    setupInfiniteScroll();
 
     // Save Account Handler - FIXED
     document.getElementById('saveAccount').addEventListener('click', function () {
@@ -326,49 +474,46 @@ function initializeUserManagement() {
         previewContainer.style.display = 'none';
     });
 
-    // Handle delete user
+     // Delete User Handler with SweetAlert
     $(document).on('click', '.delete-user', function () {
         const userId = $(this).data('id');
-        const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
-        deleteModal.show();
         
-        document.getElementById('confirmDelete').onclick = function () {
-            // Show loading state
-            const confirmBtn = this;
-            const originalText = confirmBtn.innerHTML;
-            confirmBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Deleting...';
-            confirmBtn.disabled = true;
-            
-            $.ajax({
-                url: `http://localhost:8080/api/v1/user/${userId}`,
-                type: 'DELETE',
-                headers: {
-            'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
-        },
-                success: function (data) {
-                    alert(data.msg);
-                    if (data.msg.includes('successfully')) {
+        Swal.fire({
+            title: 'Delete User?',
+            text: "This action cannot be undone!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d4af37',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: `http://localhost:8080/api/v1/user/${userId}`,
+                    type: 'DELETE',
+                    headers: {
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+                    },
+                    success: function (data) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted!',
+                            text: data.msg || 'User deleted successfully.',
+                            confirmButtonColor: '#d4af37'
+                        });
                         usersTable.ajax.reload();
+                    },
+                    error: function (xhr) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: xhr.responseJSON?.msg || 'Failed to delete user',
+                            confirmButtonColor: '#d4af37'
+                        });
                     }
-                    deleteModal.hide();
-                },
-                error: function (xhr, status, error) {
-                    console.error('Error:', error);
-                    let errorMessage = 'Error deleting user.';
-                    
-                    if (xhr.responseJSON && xhr.responseJSON.msg) {
-                        errorMessage = xhr.responseJSON.msg;
-                    }
-                    
-                    alert(errorMessage);
-                },
-                complete: function () {
-                    // Reset button state
-                    confirmBtn.innerHTML = originalText;
-                    confirmBtn.disabled = false;
-                }
-            });
-        };
+                });
+            }
+        });
     });
 
     // Handle add new user
@@ -396,44 +541,59 @@ function initializeUserManagement() {
         performBulkAction('deactivate');
     });
 
+     // Bulk Actions with SweetAlert
     document.getElementById('bulkDelete').addEventListener('click', function (e) {
         e.preventDefault();
         const selectedUsers = document.querySelectorAll('.user-checkbox:checked');
 
         if (selectedUsers.length === 0) {
-            Swal.fire('No Selection', 'Please select users to delete.', 'warning');
+            Swal.fire({
+                icon: 'warning',
+                title: 'No Selection',
+                text: 'Please select users to delete.',
+                confirmButtonColor: '#d4af37'
+            });
             return;
         }
 
         const userIds = Array.from(selectedUsers).map(cb => cb.value);
 
         Swal.fire({
-            title: 'Confirm Bulk Delete',
-            text: `Are you sure you want to delete ${userIds.length} user(s)? This action cannot be undone.`,
+            title: 'Delete Multiple Users?',
+            html: `You are about to delete <strong>${userIds.length}</strong> user(s).<br>This action cannot be undone!`,
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Yes, delete them',
-            cancelButtonText: 'Cancel'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                $.ajax({
+            confirmButtonColor: '#d4af37',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete them!',
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                return $.ajax({
                     url: 'http://localhost:8080/api/v1/user/bulk/delete',
                     type: 'DELETE',
                     headers: {
-            'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
-        },
-                    contentType: 'application/json',
-                    data: JSON.stringify({ ids: userIds }),
-                    success: function (res) {
-                        Swal.fire('Deleted', res.msg || 'Users deleted successfully.', 'success');
-                        $('#accountsTable').DataTable().ajax.reload();
-                        document.getElementById('selectAll').checked = false;
+                        'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
                     },
-                    error: function (xhr) {
-                        Swal.fire('Error', 'Error deleting users.', 'error');
-                        console.error('Bulk delete error:', xhr);
-                    }
+                    contentType: 'application/json',
+                    data: JSON.stringify({ ids: userIds })
+                }).then(response => {
+                    return response;
+                }).catch(error => {
+                    Swal.showValidationMessage(
+                        `Request failed: ${error.responseJSON?.msg || error.statusText}`
+                    );
                 });
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Deleted!',
+                    text: result.value.msg || 'Users deleted successfully.',
+                    confirmButtonColor: '#d4af37'
+                });
+                usersTable.ajax.reload();
+                document.getElementById('selectAll').checked = false;
             }
         });
     });
@@ -517,56 +677,23 @@ function initializeUserManagement() {
 }
 
 function logout() {
-    Swal.fire({
-                title: 'Sign Out Confirmation 🚪',
-                text: 'Are you sure you want to sign out of your GemTry account?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#d4af37',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Yes, Sign Out',
-                cancelButtonText: 'Stay Signed In',
-                backdrop: true,
-                reverseButtons: true
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    try {
-                        // Show signing out process
-                        Swal.fire({
-                            title: 'Signing You Out... 🔄',
-                            text: 'Securely logging you out of your account',
-                            icon: 'info',
-                            showConfirmButton: false,
-                            allowOutsideClick: false,
-                            didOpen: () => {
-                                Swal.showLoading();
-                            }
-                        });
-
-                        // Simulate logout delay for better UX
-                        setTimeout(() => {
-                            // Clear session storage
-                            sessionStorage.removeItem('authToken');
-                            sessionStorage.removeItem('role');
-                            sessionStorage.removeItem('name');
-                            sessionStorage.removeItem('initial');
-                            
-                            
-                            
-                            // Success notification
-                            Swal.fire({
-                                title: 'Successfully Signed Out! 👋',
-                                text: 'Thank you for visiting GemTry. Come back soon for more beautiful jewelry!',
-                                icon: 'success',
-                                confirmButtonColor: '#d4af37',
-                                confirmButtonText: 'Browse More',
-                                timer: 4000,
-                                timerProgressBar: true
-                            }).then(() => {
-                                window.location.href = '../login.html';
-                            });
-                            1500
-                        });
+    try {
+                Swal.fire({
+                    title: 'Signing You Out...',
+                    html: 'Please wait while we securely log you out',
+                    timer: 1500,
+                    timerProgressBar: true,
+                    didOpen: () => {
+                        Swal.showLoading();
+                        sessionStorage.removeItem('authToken');
+                        sessionStorage.removeItem('role');
+                        sessionStorage.removeItem('name');
+                        sessionStorage.removeItem('initial');
+                    },
+                    willClose: () => {
+                        window.location.href = '../login.html';
+                    }
+                });
                         
                     } catch (error) {
                         console.error('Logout error:', error);
@@ -579,6 +706,4 @@ function logout() {
                             footer: '<small>For security, please close your browser session</small>'
                         });
                     }
-                }
-            });
-}
+    }

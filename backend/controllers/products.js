@@ -1,7 +1,83 @@
 const db = require('../config/database');
 const fs = require('fs');
 const path = require('path');
-const config = require('../config/server');
+// Search products
+exports.searchProducts = (req, res) => {
+    const { term } = req.query;
+    
+    if (!term) {
+        return res.status(400).json({
+            status: 'error',
+            message: 'Search term is required'
+        });
+    }
+
+    const searchTerm = `%${term}%`;
+    const query = `
+        SELECT 
+            i.item_id,
+            i.item_name,
+            i.item_desc,
+            i.item_price,
+            i.item_img,
+            i.created_at,
+            i.updated_at,
+            c.category_name,
+            c.category_id,
+            COALESCE(s.qty, 0) as stock_qty
+        FROM items i
+        LEFT JOIN item_category ic ON i.item_id = ic.item_id
+        LEFT JOIN categories c ON ic.category_id = c.category_id
+        LEFT JOIN stocks s ON i.item_id = s.item_id
+        WHERE 
+            LOWER(i.item_name) LIKE LOWER(?) OR
+            LOWER(i.item_desc) LIKE LOWER(?) OR
+            LOWER(c.category_name) LIKE LOWER(?)
+        ORDER BY 
+            CASE 
+                WHEN LOWER(i.item_name) LIKE LOWER(?) THEN 1
+                WHEN LOWER(i.item_desc) LIKE LOWER(?) THEN 2
+                ELSE 3
+            END,
+            i.item_name ASC
+        LIMIT 10
+    `;
+
+    db.execute(query, [
+        searchTerm, // for name
+        searchTerm, // for description
+        searchTerm, // for category
+        searchTerm, // for ordering by name match
+        searchTerm  // for ordering by description match
+    ], (error, results) => {
+        if (error) {
+            console.error('Search error:', error);
+            return res.status(500).json({
+                status: 'error',
+                message: 'Failed to search products'
+            });
+        }
+
+        // Process results
+        const products = results.map(item => ({
+            item_id: item.item_id,
+            item_name: item.item_name,
+            item_desc: item.item_desc,
+            item_price: parseFloat(item.item_price),
+            item_img: item.item_img,
+            stock_qty: parseInt(item.stock_qty),
+            category_name: item.category_name,
+            category_id: item.category_id,
+            created_at: item.created_at,
+            updated_at: item.updated_at
+        }));
+
+        res.json({
+            status: 'success',
+            data: products
+        });
+    });
+};
 
 // Helper function to get category ID by name
 // async function getCategoryNameById(categoryId) {

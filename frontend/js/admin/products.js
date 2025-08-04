@@ -1,569 +1,493 @@
-// Product Management JavaScript with SweetAlert2
-document.addEventListener('DOMContentLoaded', function() {
-    // Add custom validation methods first
-    addCustomValidationMethods();
-    initializeProductManagement();
-
-    // JQUERY Validation Setup
-    $('#productForm').validate({
-        rules: {
-            productName: {
-                required: true,
-                minlength: 2
-            },
-            productCategory: {
-                required: true
-            },
-            productPrice: {
-                required: true,
-                number: true,
-                min: 0.01
-            },
-            productStock: {
-                required: true,
-                digits: true,
-                min: 0
-            },
-            mainProductImage: {
-                required: function() {
-                    // Only required if no product ID (new product)
-                    return !$('#productId').val();
-                },
-                accept: "image/*",
-                filesize: 5 * 1024 * 1024 // 5MB
-            },
-            productGallery: {
-                required: function() {
-                    // Only required if no product ID (new product)
-                    return !$('#productId').val();
-                },
-                accept: "image/*",
-                maxfiles: 5,
-                filesize: 5 * 1024 * 1024 // 5MB per file
+// Improved Product Management JavaScript with Enhanced Infinite Scroll
+class ProductManager {
+    constructor() {
+        this.config = {
+            apiBaseUrl: 'http://localhost:8080/api/v1/product',
+            infiniteScroll: {
+                pageSize: 20,
+                currentPage: 1,
+                loading: false,
+                hasMore: true,
+                threshold: 200, // pixels from bottom to trigger load
+                totalRecords: 0,
+                lastScrollPosition: 0
             }
-        },
-        messages: {
-            productName: {
-                required: "Please enter the product name",
-                minlength: "Name must be at least 2 characters"
-            },
-            productCategory: {
-                required: "Please select a product category"
-            },
-            productPrice: {
-                required: "Please enter the product price",
-                number: "Please enter a valid number",
-                min: "Price must be at least $0.01"
-            },
-            productStock: {
-                required: "Please enter the stock quantity",
-                digits: "Only whole numbers are allowed",
-                min: "Stock cannot be negative"
-            },
-            mainProductImage: {
-                required: "Please select a main product image",
-                accept: "Only image files are allowed",
-                filesize: "File size must be less than 5MB"
-            },
-            productGallery: {
-                required: "Please select at least one gallery image",
-                accept: "Only image files are allowed",
-                maxfiles: "Maximum 5 files allowed",
-                filesize: "Each file must be less than 5MB"
-            }
-        },
-        errorClass: 'text-danger',
-        errorElement: 'div',
-        highlight: function(element) {
-            $(element).addClass('is-invalid');
-        },
-        unhighlight: function(element) {
-            $(element).removeClass('is-invalid');
-        },
-        errorPlacement: function(error, element) {
-            // Place error message after the element
-            error.insertAfter(element);
-        }
-    });
-});
-
-// For product gallery validation
-function addCustomValidationMethods() {
-    // File size validation method
-    $.validator.addMethod("filesize", function(value, element, param) {
-        if (!element.files || element.files.length === 0) {
-            return true; // Let required handle empty files
-        }
+        };
         
-        for (let i = 0; i < element.files.length; i++) {
-            if (element.files[i].size > param) {
-                return false;
-            }
-        }
-        return true;
-    }, "File size is too large");
-
-    // Maximum files validation method
-    $.validator.addMethod("maxfiles", function(value, element, param) {
-        if (!element.files) {
-            return true;
-        }
-        return element.files.length <= param;
-    }, "Too many files selected");
-
-    // File type validation method (improved accept method)
-    $.validator.addMethod("accept", function(value, element, param) {
-        if (!element.files || element.files.length === 0) {
-            return true; // Let required handle empty files
-        }
-        
-        // If param is "image/*", check if all files are images
-        if (param === "image/*") {
-            for (let i = 0; i < element.files.length; i++) {
-                if (!element.files[i].type.startsWith('image/')) {
-                    return false;
-                }
-            }
-            return true;
-        }
-        
-        // Original accept method logic for other cases
-        return this.optional(element) || element.files[0].type.match(new RegExp(param));
-    }, "Invalid file type");
-}
-
-async function fetchCategories() {
-    try {
-        const response = await $.ajax({
-            url: 'http://localhost:8080/api/v1/product/categories',
-            type: 'GET'
-        });
-        return response;
-    } catch (error) {
-        console.error('Error fetching categories:', error);
-        return [];
+        this.allProducts = [];
+        this.filteredProducts = [];
+        this.filters = { category: '', price: '', search: '' };
+        this.init();
     }
-}
 
-async function initializeProductManagement() {
-    const categories = await fetchCategories();
-    console.log(categories);
-    
-    // Populate category filter dropdown
-    const categoryFilter = $('#categoryFilter');
-    categoryFilter.empty().append('<option value="">All Categories</option>');
-    categories.forEach(category => {
-        categoryFilter.append(`<option value="${category.category_name}">${category.category_name}</option>`);
-    });
-    
-    // Populate product category dropdown in the form
-    const productCategory = $('#productCategory');
-    productCategory.empty().append('<option value="">Select Category</option>');
-    categories.forEach(category => {
-        productCategory.append(`<option value="${category.category_id}">${category.category_name}</option>`);
-    });
-    
-    // Initialize DataTable
-    const productsTable = $('#productsTable').DataTable({
-        ajax: {
-            url: 'http://localhost:8080/api/v1/product',
-            dataSrc: '',
-            error: function(xhr, error, thrown) {
-                console.error('DataTable error:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Loading Error',
-                    text: 'Error loading products. Please refresh the page.',
-                    confirmButtonText: 'OK'
-                });
+    // Initialize the product management system
+    async init() {
+        this.addValidationMethods();
+        this.setupValidation();
+        await this.loadCategories();
+        this.setupTableStructure();
+        this.setupEventListeners();
+        this.setupInfiniteScroll();
+        await this.loadProducts(true);
+    }
+
+    // Add custom validation methods
+    addValidationMethods() {
+        $.validator.addMethod("filesize", function(value, element, param) {
+            if (!element.files?.length) return true;
+            return Array.from(element.files).every(file => file.size <= param);
+        }, "File size is too large");
+
+        $.validator.addMethod("maxfiles", function(value, element, param) {
+            return !element.files || element.files.length <= param;
+        }, "Too many files selected");
+
+        $.validator.addMethod("accept", function(value, element, param) {
+            if (!element.files?.length) return true;
+            if (param === "image/*") {
+                return Array.from(element.files).every(file => file.type.startsWith('image/'));
             }
-        },
-        columns: [
-            {
-                data: null,
-                render: function(data, type, row) {
-                    return `<input type="checkbox" class="product-checkbox" value="${row.item_id}">`;
+            return element.files[0].type.match(new RegExp(param));
+        }, "Invalid file type");
+    }
+
+    // Setup form validation
+    setupValidation() {
+        $('#productForm').validate({
+            rules: {
+                productName: { required: true, minlength: 2 },
+                productCategory: { required: true },
+                productPrice: { required: true, number: true, min: 0.01 },
+                productStock: { required: true, digits: true, min: 0 },
+                mainProductImage: {
+                    required: () => !$('#productId').val(),
+                    accept: "image/*",
+                    filesize: 5 * 1024 * 1024
                 },
-                orderable: false,
-                searchable: false
-            },
-            { 
-                data: 'item_id',
-                title: 'ID'
-            },
-            { 
-                data: 'item_name',
-                title: 'Name',
-                render: function(data, type, row) {
-                    const imageHtml = row.item_img ? 
-                        `<img src="/${row.item_img}" alt="${data}" class="product-thumbnail me-2" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">` : 
-                        '<div class="product-thumbnail me-2 bg-light d-inline-block text-center" style="width: 40px; height: 40px; line-height: 40px; color: #ccc; border-radius: 4px;">No Image</div>';
-                    return imageHtml + `<span class="ms-2">${data}</span>`;
+                productGallery: {
+                    required: () => !$('#productId').val(),
+                    accept: "image/*",
+                    maxfiles: 5,
+                    filesize: 5 * 1024 * 1024
                 }
             },
-            { 
-                data: 'category_name',
-                title: 'Category',
-                render: function(data) {
-                    return data || 'Uncategorized';
-                }
+            messages: {
+                productName: { required: "Please enter the product name", minlength: "Name must be at least 2 characters" },
+                productCategory: { required: "Please select a product category" },
+                productPrice: { required: "Please enter the product price", number: "Please enter a valid number", min: "Price must be at least $0.01" },
+                productStock: { required: "Please enter the stock quantity", digits: "Only whole numbers are allowed", min: "Stock cannot be negative" },
+                mainProductImage: { required: "Please select a main product image", accept: "Only image files are allowed", filesize: "File size must be less than 5MB" },
+                productGallery: { required: "Please select at least one gallery image", accept: "Only image files are allowed", maxfiles: "Maximum 5 files allowed", filesize: "Each file must be less than 5MB" }
             },
-            { 
-                data: 'item_price',
-                title: 'Price',
-                render: function(data) {
-                    return `$${parseFloat(data || 0).toFixed(2)}`;
-                }
-            },
-            { 
-                data: 'stock_qty',
-                title: 'Stock',
-                render: function(data, type, row) {
-                    const qty = parseInt(data || 0);
-                    let badgeClass = 'badge bg-success';
-                    if (qty === 0) {
-                        badgeClass = 'badge bg-danger';
-                    } else if (qty < 10) {
-                        badgeClass = 'badge bg-warning';
-                    }
-                    return `<span class="${badgeClass}">${qty}</span>`;
-                }
-            },
-            {
-                data: null,
-                title: 'Actions',
-                render: function(data, type, row) {
-                    return `
-                        <div class="btn-group" role="group">
-                            <button class="btn btn-sm btn-outline-primary edit-product" data-id="${row.item_id}" title="Edit">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger delete-product" data-id="${row.item_id}" title="Delete">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                    `;
-                },
-                orderable: false,
-                searchable: false
-            }
-        ],
-        order: [[1, 'desc']],
-        responsive: true,
-        pageLength: 10,
-        lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "All"]],
-        language: {
-            search: "Search products:",
-            lengthMenu: "Show _MENU_ products per page",
-            info: "Showing _START_ to _END_ of _TOTAL_ products",
-            infoEmpty: "Showing 0 to 0 of 0 products",
-            infoFiltered: "(filtered from _MAX_ total products)",
-            emptyTable: "No products found",
-            zeroRecords: "No matching products found"
-        },
-        drawCallback: function(settings) {
-            // Update select all checkbox state
-            const allCheckboxes = $('.product-checkbox');
-            const checkedCheckboxes = $('.product-checkbox:checked');
-            $('#selectAll').prop('indeterminate', checkedCheckboxes.length > 0 && checkedCheckboxes.length < allCheckboxes.length);
-            $('#selectAll').prop('checked', checkedCheckboxes.length === allCheckboxes.length && allCheckboxes.length > 0);
-        }
-    });
+            errorClass: 'text-danger',
+            errorElement: 'div',
+            highlight: element => $(element).addClass('is-invalid'),
+            unhighlight: element => $(element).removeClass('is-invalid'),
+            errorPlacement: (error, element) => error.insertAfter(element)
+        });
+    }
 
-    // Handle image preview for main product image
-    document.getElementById('mainProductImage').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        const preview = document.getElementById('mainImagePreview');
-        const previewImg = document.getElementById('mainPreviewImg');
-        
-        // Validate the file first
-        $(this).valid();
-        
-        if (file && file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                previewImg.src = e.target.result;
-                preview.style.display = 'block';
-            };
-            reader.readAsDataURL(file);
-        } else {
-            preview.style.display = 'none';
-        }
-    });
-
-    // Handle gallery images preview
-    document.getElementById('productGallery').addEventListener('change', function(e) {
-        const files = e.target.files;
-        const galleryContainer = document.getElementById('galleryPreview');
-        const emptyMessage = document.getElementById('emptyGalleryMessage');
-        
-        // Validate the files first
-        $(this).valid();
-
-        if (files.length > 0) {
-            emptyMessage.style.display = 'none';
-            
-            // Clear existing previews
-            galleryContainer.innerHTML = '';
-            
-            Array.from(files).forEach((file, index) => {
-                if (file && file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const galleryItem = document.createElement('div');
-                        galleryItem.className = 'position-relative d-inline-block me-2 mb-2';
-                        galleryItem.innerHTML = `
-                            <img src="${e.target.result}" alt="Gallery Image ${index + 1}" class="img-thumbnail" style="max-width: 120px; max-height: 120px; object-fit: cover;">
-                            <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 remove-gallery-preview" data-index="${index}">
-                                <i class="bi bi-x-lg"></i>
-                            </button>
-                        `;
-                        galleryContainer.appendChild(galleryItem);
-                    };
-                    reader.readAsDataURL(file);
-                }
+    // Load categories from API
+    async loadCategories() {
+        try {
+            const categories = await $.ajax({
+                url: `${this.config.apiBaseUrl}/categories`,
+                type: 'GET'
             });
-        } else {
-            emptyMessage.style.display = 'block';
-            galleryContainer.innerHTML = '';
-        }
-    });
 
-    // Handle form submission
-    document.getElementById('saveProduct').addEventListener('click', function () {
-        // Validate form using JQUERY first
-        if (!$('#productForm').valid()) {
-            console.log('Form validation failed');
+            // Populate dropdowns
+            this.populateSelect('#categoryFilter', categories, 'category_name', 'All Categories');
+            this.populateSelect('#productCategory', categories, 'category_name', 'Select Category', 'category_id');
+        } catch (error) {
+            console.error('Error loading categories:', error);
+        }
+    }
+
+    // Utility to populate select elements
+    populateSelect(selector, data, textField, defaultText, valueField = null) {
+        const select = $(selector);
+        select.empty().append(`<option value="">${defaultText}</option>`);
+        data.forEach(item => {
+            const value = valueField ? item[valueField] : item[textField];
+            select.append(`<option value="${value}">${item[textField]}</option>`);
+        });
+    }
+
+    // Setup table structure
+    setupTableStructure() {
+        // Initialize DataTable with infinite scroll configuration
+        this.dataTable = $('#productsTable').DataTable({
+            data: [],
+            columns: [
+                { data: '0', orderable: false, width: '5%' }, // Checkbox column
+                { data: '1', width: '10%' }, // ID
+                { data: '2', width: '25%' }, // Name
+                { data: '3', width: '20%' }, // Category
+                { data: '4', width: '15%' }, // Price
+                { data: '5', width: '15%' }, // Stock
+                { data: '6', orderable: false, width: '10%' } // Actions column
+            ],
+            order: [[1, 'desc']],
+            responsive: true,
+            paging: false,
+            scrollY: '60vh',
+            scrollCollapse: true,
+            info: false,
+            searching: false,
+            language: {
+                emptyTable: "No products available",
+                zeroRecords: "No matching products found",
+                processing: "Loading products..."
+            },
+            processing: false,
+            stateSave: false,
+            drawCallback: function() {
+                if (this.api().data().length) {
+                    $('.dataTables_scrollBody').show();
+                } else {
+                    $('.dataTables_scrollBody').hide();
+                }
+            }
+        });
+
+        // Setup infinite scroll
+        this.setupInfiniteScroll();
+    }
+
+    // Enhanced infinite scroll setup
+    setupInfiniteScroll() {
+        const scrollContainer = $('.dataTables_scrollBody');
+        let scrollTimeout;
+        
+        scrollContainer.on('scroll', () => {
+            if (this.config.infiniteScroll.loading || !this.config.infiniteScroll.hasMore) return;
+
+            const container = scrollContainer[0];
+            const scrollPos = container.scrollTop;
+            const scrollHeight = container.scrollHeight;
+            const viewportHeight = scrollContainer.height();
+            const distanceFromBottom = scrollHeight - scrollPos - viewportHeight;
+            const scrolledDown = scrollPos > this.config.infiniteScroll.lastScrollPosition;
+
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                if (distanceFromBottom < this.config.infiniteScroll.threshold && 
+                    scrolledDown && 
+                    !this.hasActiveFilters()) {
+                    
+                    this.config.infiniteScroll.lastScrollPosition = scrollPos;
+                    this.loadProducts(false);
+                }
+            }, 100);
+        });
+    }
+
+    // Load products with enhanced pagination
+    async loadProducts(reset = false) {
+        // Prevent multiple simultaneous requests
+        if (this.config.infiniteScroll.loading) {
+            console.log('Already loading, skipping request');
             return;
         }
 
-        const formData = new FormData();
-        const productId = document.getElementById('productId').value;
-        const productName = document.getElementById('productName').value.trim();
-        const productCategory = document.getElementById('productCategory').value;
-        const productPrice = document.getElementById('productPrice').value;
-        const productStock = document.getElementById('productStock').value;
-        const productDescription = document.getElementById('productDescription').value.trim();
-        const mainImage = document.getElementById('mainProductImage').files[0];
-        const galleryImages = document.getElementById('productGallery').files;
-
-        // Prepare form data - match the backend field names
-        formData.append('name', productName);
-        if (productCategory) formData.append('category', productCategory);
-        if (productPrice) formData.append('price', productPrice);
-        if (productStock) formData.append('stock', productStock);
-        if (productDescription) formData.append('description', productDescription);
-
-        // Match the backend multer field names
-        if (mainImage) {
-            formData.append('mainImage', mainImage); // Backend expects 'mainImage'
+        // If we've loaded all available data and this isn't a reset, don't load more
+        if (!this.config.infiniteScroll.hasMore && !reset) {
+            console.log('No more data to load');
+            return;
         }
 
-        if (galleryImages && galleryImages.length > 0) {
-            Array.from(galleryImages).forEach(file => {
-                formData.append('galleryImages', file); // Backend expects 'galleryImages'
-            });
-        }
-
-        const url = productId
-            ? `http://localhost:8080/api/v1/product/${productId}`
-            : 'http://localhost:8080/api/v1/product';
-        const method = productId ? 'PUT' : 'POST';
-
-        const saveBtn = this;
-        const originalHtml = saveBtn.innerHTML;
+        this.config.infiniteScroll.loading = true;
         
-        // Set loading state
-        saveBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Saving...';
-        saveBtn.disabled = true;
-
-        // Debug: Log the form data
-        console.log('Submitting form with method:', method);
-        console.log('URL:', url);
-        for (let pair of formData.entries()) {
-            console.log(pair[0] + ': ' + pair[1]);
+        if (reset) {
+            this.config.infiniteScroll.currentPage = 1;
+            this.config.infiniteScroll.hasMore = true;
+            this.config.infiniteScroll.totalRecords = 0;
+            this.allProducts = [];
+            this.showLoadingIndicator();
+        } else {
+            this.showLoadMoreIndicator();
         }
 
-        $.ajax({
-            url: url,
-            type: method,
-            data: formData,
-            headers: {
-                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
-            },
-            processData: false,
-            contentType: false,
-            timeout: 30000, // 30 second timeout
-            success: function (data) {
-                console.log('Success response:', data);
-                
-                // Show success message with SweetAlert2
-                const message = (data && data.msg) ? data.msg : 'Product saved successfully!';
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Success!',
-                    text: message,
-                    confirmButtonText: 'OK',
-                    timer: 3000,
-                    timerProgressBar: true
-                }).then(() => {
-                    // Close modal and refresh table on success
-                    try {
-                        const modal = bootstrap.Modal.getInstance(document.getElementById('productModal'));
-                        if (modal) {
-                            modal.hide();
-                        }
-                        
-                        // Refresh the products table
-                        if (typeof productsTable !== 'undefined' && productsTable.ajax) {
-                            productsTable.ajax.reload(null, false); // Keep current page
-                        }
-                        
-                        // Reset the form
-                        resetForm();
-                    } catch (modalError) {
-                        console.error('Error closing modal:', modalError);
-                    }
-                });
-            },
-            error: function (xhr, status, error) {
-                console.error('Ajax error:', {xhr, status, error});
-                console.error('Response text:', xhr.responseText);
-                
-                let errorMessage = 'An error occurred while saving the product.';
-                
-                // Try to get error message from response
-                try {
-                    if (xhr.responseJSON && xhr.responseJSON.msg) {
-                        errorMessage = xhr.responseJSON.msg;
-                    } else if (xhr.responseText) {
-                        const responseObj = JSON.parse(xhr.responseText);
-                        if (responseObj.msg) {
-                            errorMessage = responseObj.msg;
-                        }
-                    }
-                } catch (parseError) {
-                    console.error('Error parsing response:', parseError);
-                    if (status === 'timeout') {
-                        errorMessage = 'Request timed out. Please try again.';
-                    } else if (status === 'error') {
-                        errorMessage = 'Network error. Please check your connection.';
-                    }
-                }
-                
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error!',
-                    text: errorMessage,
-                    confirmButtonText: 'OK'
-                });
-            },
-            complete: function (xhr, status) {
-                console.log('Request completed with status:', status);
-                
-                // Always reset button state regardless of success or failure
-                saveBtn.innerHTML = originalHtml;
-                saveBtn.disabled = false;
+        const params = {
+            page: this.config.infiniteScroll.currentPage,
+            limit: this.config.infiniteScroll.pageSize
+        };
+
+        console.log(`Loading page ${this.config.infiniteScroll.currentPage} with limit ${this.config.infiniteScroll.pageSize}`);
+
+        try {
+            const response = await $.ajax({
+                url: this.config.apiBaseUrl,
+                type: 'GET',
+                data: params,
+                headers: { 'Authorization': 'Bearer ' + sessionStorage.getItem('authToken') }
+            });
+
+            console.log('API Response:', response);
+            
+            // Handle different API response formats
+            let products = [];
+            let totalCount = 0;
+            
+            if (Array.isArray(response)) {
+                products = response;
+                totalCount = this.config.infiniteScroll.totalRecords + products.length;
+            } else if (response.products) {
+                products = response.products;
+                totalCount = response.total || response.totalCount || (this.config.infiniteScroll.totalRecords + products.length);
+            } else if (response.data) {
+                products = response.data;
+                totalCount = response.total || response.totalCount || (this.config.infiniteScroll.totalRecords + products.length);
             }
+
+            console.log(`Received ${products.length} products, total available: ${totalCount}`);
+
+            if (reset) {
+                this.allProducts = products;
+                this.config.infiniteScroll.totalRecords = totalCount;
+            } else {
+                // Check for duplicates before adding
+                const existingIds = new Set(this.allProducts.map(product => product.item_id));
+                const newProducts = products.filter(product => !existingIds.has(product.item_id));
+                this.allProducts = this.allProducts.concat(newProducts);
+                console.log(`Added ${newProducts.length} new products (filtered ${products.length - newProducts.length} duplicates)`);
+            }
+
+            // Determine if there are more records to load
+            const loadedCount = this.allProducts.length;
+            
+            this.config.infiniteScroll.hasMore = 
+                products.length === this.config.infiniteScroll.pageSize && 
+                loadedCount < this.config.infiniteScroll.totalRecords && 
+                products.length > 0;
+
+            console.log(`Loaded: ${loadedCount}, Total: ${this.config.infiniteScroll.totalRecords}, HasMore: ${this.config.infiniteScroll.hasMore}`);
+
+            // Only increment page if we successfully loaded data
+            if (products.length > 0) {
+                this.config.infiniteScroll.currentPage++;
+            }
+
+            // Apply current filters and update table
+            this.applyFiltersAndUpdateTable();
+            
+        } catch (error) {
+            console.error('Error loading products:', error);
+            this.showError('Failed to load products. Please refresh the page.');
+            this.config.infiniteScroll.hasMore = false;
+        } finally {
+            this.config.infiniteScroll.loading = false;
+            this.hideLoadingIndicators();
+            this.updateProductCount();
+        }
+    }
+
+    // Apply filters and update table display
+    applyFiltersAndUpdateTable() {
+        this.filteredProducts = this.allProducts.filter(product => {
+            let matches = true;
+
+            // Category filter
+            if (this.filters.category && product.category_name?.toLowerCase() !== this.filters.category.toLowerCase()) {
+                matches = false;
+            }
+
+            // Price filter
+            if (this.filters.price) {
+                const productPrice = parseFloat(product.item_price || 0);
+                switch (this.filters.price) {
+                    case '0-50': matches = productPrice <= 50; break;
+                    case '50-100': matches = productPrice > 50 && productPrice <= 100; break;
+                    case '100-': matches = productPrice > 100; break;
+                }
+            }
+
+            // Search filter
+            if (this.filters.search) {
+                const searchTerm = this.filters.search.toLowerCase();
+                const searchableText = `${product.item_name || ''} ${product.category_name || ''} ${product.item_desc || ''}`.toLowerCase();
+                if (!searchableText.includes(searchTerm)) {
+                    matches = false;
+                }
+            }
+
+            return matches;
         });
-    });
+
+        this.renderProducts();
+    }
+
+    // Render products in table
+    renderProducts() {
+        const displayProducts = this.hasActiveFilters() ? this.filteredProducts : this.allProducts;
+        
+        // Clear existing data and add new rows
+        this.dataTable.clear();
+        
+        if (displayProducts.length) {
+            this.dataTable.rows.add(displayProducts.map(product => this.createProductRow(product)));
+        }
+        
+        this.dataTable.draw(false); // false to maintain scroll position
+
+        this.updateSelectAllCheckbox();
+        this.updateLoadingState();
+        this.updateProductCount();
+    }
+
+    // Update loading state
+    updateLoadingState() {
+        const loadingSpinner = $('#loadingSpinner');
+        if (this.config.infiniteScroll.loading) {
+            loadingSpinner.show();
+        } else {
+            loadingSpinner.hide();
+        }
+    }
+
+    // Format row data for DataTable
+    createProductRow(product) {
+        const imageHtml = product.item_img ? 
+            `<img src="/${product.item_img}" alt="${product.item_name}" class="product-thumbnail me-2" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">` : 
+            '<div class="product-thumbnail me-2 bg-light d-inline-block text-center" style="width: 40px; height: 40px; line-height: 40px; color: #ccc; border-radius: 4px;">No Image</div>';
+
+        const qty = parseInt(product.stock_qty || 0);
+        const badgeClass = qty === 0 ? 'bg-danger' : qty < 10 ? 'bg-warning' : 'bg-success';
+
+        return {
+            0: `<input type="checkbox" class="product-checkbox" value="${product.item_id}">`,
+            1: product.item_id,
+            2: `${imageHtml}<span class="ms-2">${product.item_name}</span>`,
+            3: product.category_name || 'Uncategorized',
+            4: `$${parseFloat(product.item_price || 0).toFixed(2)}`,
+            5: `<span class="badge ${badgeClass}">${qty}</span>`,
+            6: `<div class="btn-group" role="group">
+                    <button class="btn btn-sm btn-outline-primary edit-product" data-id="${product.item_id}" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger delete-product" data-id="${product.item_id}" title="Delete">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>`
+        };
+    }
+
+    // Setup all event listeners
+    setupEventListeners() {
+        // Form submission
+        $('#saveProduct').on('click', (e) => this.handleSaveProduct(e));
+        
+        // Edit product
+        $(document).on('click', '.edit-product', (e) => this.handleEditProduct(e));
+        
+        // Delete product
+        $(document).on('click', '.delete-product', (e) => this.handleDeleteProduct(e));
+        
+        // Add new product
+        $('#addProductBtn').on('click', () => this.handleAddProduct());
+        
+        // Bulk operations
+        $('#selectAll').on('change', (e) => this.handleSelectAll(e));
+        $(document).on('change', '.product-checkbox', () => this.updateSelectAllCheckbox());
+        $('#bulkDelete').on('click', (e) => this.handleBulkDelete(e));
+        
+        // Filters
+        $('#categoryFilter').on('change', (e) => this.handleFilterChange('category', e.target.value));
+        $('#priceFilter').on('change', (e) => this.handleFilterChange('price', e.target.value));
+        
+        // Search with debounce
+        let searchTimeout;
+        $('#searchProducts').on('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => this.handleFilterChange('search', e.target.value.trim()), 300);
+        });
+        
+        // Image previews
+        $('#mainProductImage').on('change', (e) => this.handleMainImagePreview(e));
+        $('#productGallery').on('change', (e) => this.handleGalleryPreview(e));
+        
+        // Remove gallery preview
+        $(document).on('click', '.remove-gallery-preview', (e) => this.handleRemoveGalleryPreview(e));
+        
+        // Refresh
+        $('#refreshProducts').on('click', () => this.refresh());
+    }
+
+    // Handle save product
+    async handleSaveProduct(e) {
+        if (!$('#productForm').valid()) return;
+
+        const formData = new FormData();
+        const productId = $('#productId').val();
+        
+        // Append form data
+        formData.append('name', $('#productName').val().trim());
+        formData.append('category', $('#productCategory').val());
+        formData.append('price', $('#productPrice').val());
+        formData.append('stock', $('#productStock').val());
+        formData.append('description', $('#productDescription').val().trim());
+        
+        const mainImage = $('#mainProductImage')[0].files[0];
+        const galleryImages = $('#productGallery')[0].files;
+        
+        if (mainImage) formData.append('mainImage', mainImage);
+        if (galleryImages.length) {
+            Array.from(galleryImages).forEach(file => formData.append('galleryImages', file));
+        }
+
+        const saveBtn = $(e.target);
+        const originalHtml = saveBtn.html();
+        saveBtn.html('<i class="bi bi-hourglass-split"></i> Saving...').prop('disabled', true);
+
+        try {
+            const url = productId ? `${this.config.apiBaseUrl}/${productId}` : this.config.apiBaseUrl;
+            const method = productId ? 'PUT' : 'POST';
+
+            const response = await $.ajax({
+                url, type: method, data: formData,
+                headers: { 'Authorization': 'Bearer ' + sessionStorage.getItem('authToken') },
+                processData: false, contentType: false, timeout: 30000
+            });
+
+            this.showSuccess(response.msg || 'Product saved successfully!');
+            this.closeModal();
+            await this.refresh();
+            this.resetForm();
+        } catch (error) {
+            this.showError(this.getErrorMessage(error));
+        } finally {
+            saveBtn.html(originalHtml).prop('disabled', false);
+        }
+    }
 
     // Handle edit product
-    $(document).on('click', '.edit-product', function () {
-        const productId = $(this).data('id');
+    async handleEditProduct(e) {
+        const productId = $(e.target).closest('button').data('id');
+        const btn = $(e.target).closest('button');
+        btn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
 
-        // Show loading state
-        $(this).prop('disabled', true).html('<i class="bi bi-hourglass-split"></i>');
+        try {
+            const response = await $.ajax({
+                url: `${this.config.apiBaseUrl}/${productId}`,
+                type: 'GET',
+                headers: { 'Authorization': 'Bearer ' + sessionStorage.getItem('authToken') }
+            });
 
-        $.ajax({
-            url: `http://localhost:8080/api/v1/product/${productId}`,
-            type: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
-            },
-            success: function (data) {
-                if (data.product) {
-                    const product = data.product;
-
-                    // Fill in basic fields
-                    $('#productId').val(product.item_id);
-                    $('#productName').val(product.item_name);
-                    $('#productPrice').val(product.item_price);
-                    $('#productDescription').val(product.item_desc || '');
-                    $('#productStock').val(product.stock_qty || '');
-                    
-                    // Set category - check if category exists in dropdown
-                    if (product.category_id) {
-                        const categoryOption = $(`#productCategory option[value="${product.category_id}"]`);
-                        if (categoryOption.length > 0) {
-                            $('#productCategory').val(product.category_id);
-                        } else {
-                            console.warn(`Category ID ${product.category_id} not found in dropdown options`);
-                            $('#productCategory').val('');
-                        }
-                    } else {
-                        $('#productCategory').val('');
-                    }
-
-                    // Main image preview
-                    const mainImagePreview = $('#mainImagePreview');
-                    const mainPreviewImg = $('#mainPreviewImg');
-                    if (product.item_img) {
-                        mainPreviewImg.attr('src', `http://localhost:8080/${product.item_img}`);
-                        mainImagePreview.show();
-                    } else {
-                        mainPreviewImg.attr('src', '');
-                        mainImagePreview.hide();
-                    }
-
-                    // Clear existing gallery previews
-                    const galleryContainer = $('#galleryPreview');
-                    galleryContainer.empty();
-
-                    if (Array.isArray(data.gallery) && data.gallery.length > 0) {
-                        $('#emptyGalleryMessage').hide();
-                        data.gallery.forEach((img, index) => {
-                            const imgPath = `http://localhost:8080/${img.item_path}`;
-                            const galleryItem = $(`
-                                <div class="position-relative d-inline-block me-2 mb-2">
-                                    <img src="${imgPath}" alt="Gallery Image ${index + 1}" class="img-thumbnail" style="max-width: 150px; max-height: 150px;">
-                                    <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 remove-gallery-image" data-path="${img.item_path}">
-                                        <i class="bi bi-x-lg"></i>
-                                    </button>
-                                </div>
-                            `);
-                            galleryContainer.append(galleryItem);
-                        });
-                    } else {
-                        $('#emptyGalleryMessage').show();
-                    }
-
-                    // Update modal title and show it
-                    $('#productModalLabel').text('Edit Product');
-                    const modal = new bootstrap.Modal(document.getElementById('productModal'));
-                    modal.show();
-                }
-            },
-            error: function (xhr, status, error) {
-                console.error('Error:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Loading Error',
-                    text: 'Error loading product details.',
-                    confirmButtonText: 'OK'
-                });
-            },
-            complete: function () {
-                // Reset button state
-                $('.edit-product[data-id="' + productId + '"]').prop('disabled', false).html('<i class="bi bi-pencil"></i>');
+            if (response.product) {
+                this.populateEditForm(response.product, response.gallery);
+                $('#productModalLabel').text('Edit Product');
+                new bootstrap.Modal(document.getElementById('productModal')).show();
             }
-        });
-    });
+        } catch (error) {
+            this.showError('Error loading product details.');
+        } finally {
+            btn.prop('disabled', false).html('<i class="bi bi-pencil"></i>');
+        }
+    }
 
     // Handle delete product
-    $(document).on('click', '.delete-product', function() {
-        const productId = $(this).data('id');
+    handleDeleteProduct(e) {
+        const productId = $(e.target).closest('button').data('id');
         
         Swal.fire({
             title: 'Are you sure?',
@@ -572,298 +496,327 @@ async function initializeProductManagement() {
             showCancelButton: true,
             confirmButtonColor: '#d33',
             cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Yes, delete it!',
-            cancelButtonText: 'Cancel'
-        }).then((result) => {
+            confirmButtonText: 'Yes, delete it!'
+        }).then(async (result) => {
             if (result.isConfirmed) {
-                // Show loading toast
-                Swal.fire({
-                    title: 'Deleting...',
-                    text: 'Please wait while we delete the product.',
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    showConfirmButton: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
+                this.showLoading('Deleting product...');
                 
-                $.ajax({
-                    url: `http://localhost:8080/api/v1/product/${productId}`,
-                    type: 'DELETE',
-                    headers: {
-                        'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
-                    },
-                    success: function(data) {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Deleted!',
-                            text: data.msg || 'Product has been deleted successfully.',
-                            confirmButtonText: 'OK',
-                            timer: 3000,
-                            timerProgressBar: true
-                        });
-                        
-                        if (data.msg && data.msg.includes('successfully')) {
-                            productsTable.ajax.reload();
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('Error:', error);
-                        let errorMessage = 'Error deleting product.';
-                        
-                        if (xhr.responseJSON && xhr.responseJSON.msg) {
-                            errorMessage = xhr.responseJSON.msg;
-                        }
-                        
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Delete Failed',
-                            text: errorMessage,
-                            confirmButtonText: 'OK'
-                        });
-                    }
-                });
+                try {
+                    const response = await $.ajax({
+                        url: `${this.config.apiBaseUrl}/${productId}`,
+                        type: 'DELETE',
+                        headers: { 'Authorization': 'Bearer ' + sessionStorage.getItem('authToken') }
+                    });
+                    
+                    this.showSuccess(response.msg || 'Product deleted successfully!');
+                    await this.refresh();
+                } catch (error) {
+                    this.showError(this.getErrorMessage(error));
+                }
             }
         });
-    });
-
-    // Handle add new product
-    $(document).on('click', '#addProductBtn', function() {
-        resetForm();
-        $('#productModalLabel').text('Add New Product');
-        const modal = new bootstrap.Modal(document.getElementById('productModal'));
-        modal.show();
-    });
-
-    // Handle select all checkbox
-    document.getElementById('selectAll').addEventListener('change', function() {
-        const checkboxes = document.querySelectorAll('.product-checkbox');
-        Array.from(checkboxes).forEach(checkbox => {
-            checkbox.checked = this.checked;
-        });
-    });
+    }
 
     // Handle bulk delete
-    document.getElementById('bulkDelete').addEventListener('click', function(e) {
+    handleBulkDelete(e) {
         e.preventDefault();
-        const selectedProducts = document.querySelectorAll('.product-checkbox:checked');
+        const selectedProducts = $('.product-checkbox:checked');
         
         if (selectedProducts.length === 0) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'No Selection',
-                text: 'Please select products to delete.',
-                confirmButtonText: 'OK'
-            });
+            this.showWarning('Please select products to delete.');
             return;
         }
 
         Swal.fire({
             title: 'Confirm Bulk Delete',
-            text: `Are you sure you want to delete ${selectedProducts.length} product(s)? This action cannot be undone.`,
+            text: `Delete ${selectedProducts.length} product(s)? This cannot be undone.`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Yes, delete them!',
-            cancelButtonText: 'Cancel'
-        }).then((result) => {
+            confirmButtonText: 'Yes, delete them!'
+        }).then(async (result) => {
             if (result.isConfirmed) {
-                // Show loading
-                Swal.fire({
-                    title: 'Deleting Products...',
-                    text: 'Please wait while we delete the selected products.',
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    showConfirmButton: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-
-                const deletePromises = [];
+                this.showLoading('Deleting products...');
                 
-                Array.from(selectedProducts).forEach(checkbox => {
-                    const productId = checkbox.value;
-                    deletePromises.push($.ajax({
-                        url: `http://localhost:8080/api/v1/product/${productId}`,
-                        type: 'DELETE',
-                        headers: {
-                            'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
-                        },
-                    }));
-                });
+                try {
+                    const deletePromises = selectedProducts.map((_, el) => 
+                        $.ajax({
+                            url: `${this.config.apiBaseUrl}/${el.value}`,
+                            type: 'DELETE',
+                            headers: { 'Authorization': 'Bearer ' + sessionStorage.getItem('authToken') }
+                        })
+                    ).get();
 
-                $.when.apply($, deletePromises)
-                    .done(function() {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Success!',
-                            text: 'Selected products deleted successfully.',
-                            confirmButtonText: 'OK',
-                            timer: 3000,
-                            timerProgressBar: true
-                        });
-                        productsTable.ajax.reload();
-                        document.getElementById('selectAll').checked = false;
-                    })
-                    .fail(function() {
-                        console.error('Error:', arguments);
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Delete Failed',
-                            text: 'Error deleting some products. Please try again.',
-                            confirmButtonText: 'OK'
-                        });
-                    });
+                    await Promise.all(deletePromises);
+                    this.showSuccess('Selected products deleted successfully.');
+                    await this.refresh();
+                    $('#selectAll').prop('checked', false);
+                } catch (error) {
+                    this.showError('Error deleting some products. Please try again.');
+                }
             }
         });
-    });
+    }
 
-    // Populate category filter
-    populateCategoryFilter();
-    
-    // Handle category filter
-    $('#categoryFilter').on('change', function() {
-        const selectedCategory = $(this).val();
-        productsTable.column(3).search(selectedCategory).draw();
-    });
+    // Handle filter changes
+    handleFilterChange(filterType, value) {
+        this.filters[filterType] = value;
+        this.applyFiltersAndUpdateTable();
+        this.updateProductCount();
+    }
 
-    // Handle price filter
-    $('#priceFilter').on('change', function() {
-        const selectedPrice = $(this).val();
-        let minPrice = 0;
-        let maxPrice = Infinity;
+    // Handle select all
+    handleSelectAll(e) {
+        $('.product-checkbox').prop('checked', e.target.checked);
+    }
+
+    // Handle add product
+    handleAddProduct() {
+        this.resetForm();
+        $('#productModalLabel').text('Add New Product');
+        new bootstrap.Modal(document.getElementById('productModal')).show();
+    }
+
+    // Handle image previews
+    handleMainImagePreview(e) {
+        const file = e.target.files[0];
+        const preview = $('#mainImagePreview');
+        const previewImg = $('#mainPreviewImg');
         
-        if (selectedPrice === '0-50') {
-            maxPrice = 50;
-        } else if (selectedPrice === '50-100') {
-            minPrice = 50;
-            maxPrice = 100;
-        } else if (selectedPrice === '100-') {
-            minPrice = 100;
+        $(e.target).valid();
+        
+        if (file && file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImg.attr('src', e.target.result);
+                preview.show();
+            };
+            reader.readAsDataURL(file);
+        } else {
+            preview.hide();
         }
+    }
+
+    handleGalleryPreview(e) {
+        const files = e.target.files;
+        const container = $('#galleryPreview');
+        const emptyMessage = $('#emptyGalleryMessage');
         
-        // Custom filtering function for price range
-        $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
-            if (selectedPrice === '') return true;
+        $(e.target).valid();
+
+        if (files.length > 0) {
+            emptyMessage.hide();
+            container.empty();
             
-            const price = parseFloat(data[4].replace('$', ''));
-            return price >= minPrice && price <= maxPrice;
-        });
-        
-        productsTable.draw();
-        
-        // Remove the custom filter after drawing
-        $.fn.dataTable.ext.search.pop();
-    });
-
-    // Handle remove gallery image preview
-    $(document).on('click', '.remove-gallery-preview', function() {
-        $(this).closest('.position-relative').remove();
-        
-        // Check if gallery is empty
-        const galleryContainer = $('#galleryPreview');
-        if (galleryContainer.children().length === 0) {
-            $('#emptyGalleryMessage').show();
-        }
-    });
-}
-
-function resetForm() {
-    document.getElementById('productForm').reset();
-    document.getElementById('productId').value = '';
-    
-    // Hide image previews
-    document.getElementById('mainImagePreview').style.display = 'none';
-    document.getElementById('galleryPreview').innerHTML = '';
-    document.getElementById('emptyGalleryMessage').style.display = 'block';
-    
-    // Reset category dropdown
-    $('#productCategory').val('');
-    
-    // Clear validation errors
-    $('#productForm').validate().resetForm();
-    $('#productForm .is-invalid').removeClass('is-invalid');
-}
-
-function populateCategoryFilter() {
-    // This function should be called after DataTable is initialized
-    // You may need to implement this based on your data structure
-}
-
-// Function to remove main image
-function removeMainImage() {
-    document.getElementById('mainProductImage').value = '';
-    document.getElementById('mainImagePreview').style.display = 'none';
-    // Revalidate the field
-    $('#mainProductImage').valid();
-}
-
-function logout() {
-    Swal.fire({
-                title: 'Sign Out Confirmation 🚪',
-                text: 'Are you sure you want to sign out of your GemTry account?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#d4af37',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Yes, Sign Out',
-                cancelButtonText: 'Stay Signed In',
-                backdrop: true,
-                reverseButtons: true
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    try {
-                        // Show signing out process
-                        Swal.fire({
-                            title: 'Signing You Out... 🔄',
-                            text: 'Securely logging you out of your account',
-                            icon: 'info',
-                            showConfirmButton: false,
-                            allowOutsideClick: false,
-                            didOpen: () => {
-                                Swal.showLoading();
-                            }
-                        });
-
-                        // Simulate logout delay for better UX
-                        setTimeout(() => {
-                            // Clear session storage
-                            sessionStorage.removeItem('authToken');
-                            sessionStorage.removeItem('role');
-                            sessionStorage.removeItem('name');
-                            sessionStorage.removeItem('initial');
-                            
-                            
-                            
-                            // Success notification
-                            Swal.fire({
-                                title: 'Successfully Signed Out! 👋',
-                                text: 'Thank you for visiting GemTry. Come back soon for more beautiful jewelry!',
-                                icon: 'success',
-                                confirmButtonColor: '#d4af37',
-                                confirmButtonText: 'Browse More',
-                                timer: 4000,
-                                timerProgressBar: true
-                            }).then(() => {
-                                window.location.href = '../login.html';
-                            });
-                            1500
-                        });
-                        
-                    } catch (error) {
-                        console.error('Logout error:', error);
-                        Swal.fire({
-                            title: 'Sign Out Error! ⚠️',
-                            text: 'We encountered an issue while signing you out. Please try closing your browser for security.',
-                            icon: 'error',
-                            confirmButtonColor: '#dc3545',
-                            confirmButtonText: 'I Understand',
-                            footer: '<small>For security, please close your browser session</small>'
-                        });
-                    }
+            Array.from(files).forEach((file, index) => {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        container.append(`
+                            <div class="position-relative d-inline-block me-2 mb-2">
+                                <img src="${e.target.result}" alt="Gallery ${index + 1}" class="img-thumbnail" style="max-width: 120px; max-height: 120px; object-fit: cover;">
+                                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 remove-gallery-preview">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        `);
+                    };
+                    reader.readAsDataURL(file);
                 }
             });
+        } else {
+            emptyMessage.show();
+            container.empty();
+        }
+    }
+
+    handleRemoveGalleryPreview(e) {
+        $(e.target).closest('.position-relative').remove();
+        if ($('#galleryPreview').children().length === 0) {
+            $('#emptyGalleryMessage').show();
+        }
+    }
+
+    // Utility methods
+    hasActiveFilters() {
+        return Object.values(this.filters).some(filter => filter !== '');
+    }
+
+    populateEditForm(product, gallery) {
+        $('#productId').val(product.item_id);
+        $('#productName').val(product.item_name);
+        $('#productPrice').val(product.item_price);
+        $('#productDescription').val(product.item_desc || '');
+        $('#productStock').val(product.stock_qty || '');
+        $('#productCategory').val(product.category_id || '');
+
+        // Main image preview
+        if (product.item_img) {
+            $('#mainPreviewImg').attr('src', `http://localhost:8080/${product.item_img}`);
+            $('#mainImagePreview').show();
+        } else {
+            $('#mainImagePreview').hide();
+        }
+
+        // Gallery preview
+        const galleryContainer = $('#galleryPreview');
+        galleryContainer.empty();
+
+        if (gallery?.length) {
+            $('#emptyGalleryMessage').hide();
+            gallery.forEach((img, index) => {
+                galleryContainer.append(`
+                    <div class="position-relative d-inline-block me-2 mb-2">
+                        <img src="http://localhost:8080/${img.item_path}" alt="Gallery ${index + 1}" class="img-thumbnail" style="max-width: 150px; max-height: 150px;">
+                        <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 remove-gallery-image" data-path="${img.item_path}">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                `);
+            });
+        } else {
+            $('#emptyGalleryMessage').show();
+        }
+    }
+
+    resetForm() {
+        $('#productForm')[0].reset();
+        $('#productId').val('');
+        $('#mainImagePreview').hide();
+        $('#galleryPreview').empty();
+        $('#emptyGalleryMessage').show();
+        $('#productForm').validate().resetForm();
+        $('#productForm .is-invalid').removeClass('is-invalid');
+    }
+
+    closeModal() {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('productModal'));
+        modal?.hide();
+    }
+
+    async refresh() {
+        this.config.infiniteScroll.currentPage = 1;
+        this.config.infiniteScroll.hasMore = true;
+        this.config.infiniteScroll.totalRecords = 0;
+        this.allProducts = [];
+        this.filteredProducts = [];
+        await this.loadProducts(true);
+    }
+
+    updateProductCount() {
+        const totalCount = this.allProducts.length;
+        const filteredCount = this.filteredProducts.length;
+        const totalAvailable = this.config.infiniteScroll.totalRecords;
+        
+        let countText = '';
+        if (this.hasActiveFilters()) {
+            countText = `Showing ${filteredCount} of ${totalCount} loaded products`;
+        } else {
+            if (totalAvailable > totalCount) {
+                countText = `${totalCount} of ${totalAvailable} products loaded`;
+                if (this.config.infiniteScroll.hasMore) {
+                    countText += ' (scroll for more)';
+                }
+            } else {
+                countText = `All ${totalCount} products loaded`;
+            }
+        }
+        
+        $('#productCount').text(countText);
+    }
+
+    updateSelectAllCheckbox() {
+        const allCheckboxes = $('.product-checkbox');
+        const checkedCheckboxes = $('.product-checkbox:checked');
+        const selectAll = $('#selectAll');
+        
+        selectAll.prop('indeterminate', checkedCheckboxes.length > 0 && checkedCheckboxes.length < allCheckboxes.length);
+        selectAll.prop('checked', allCheckboxes.length > 0 && checkedCheckboxes.length === allCheckboxes.length);
+    }
+
+    updateScrollHint() {
+        const hint = $('#scrollHint');
+        if (this.config.infiniteScroll.hasMore && !this.hasActiveFilters()) {
+            hint.show();
+        } else {
+            hint.hide();
+        }
+    }
+
+    showLoadingIndicator() {
+        $('#loadingSpinner').show();
+    }
+
+    hideLoadingIndicators() {
+        $('#loadingSpinner').hide();
+    }
+
+    showLoading(text = 'Loading...') {
+        Swal.fire({ title: text, allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    }
+
+    showSuccess(message) {
+        Swal.fire({ icon: 'success', title: 'Success!', text: message, timer: 3000, timerProgressBar: true });
+    }
+
+    showError(message) {
+        Swal.fire({ icon: 'error', title: 'Error!', text: message });
+    }
+
+    showWarning(message) {
+        Swal.fire({ icon: 'warning', title: 'Warning!', text: message });
+    }
+
+    getErrorMessage(xhr) {
+        try {
+            return xhr.responseJSON?.msg || 'An error occurred. Please try again.';
+        } catch {
+            return 'Network error. Please check your connection.';
+        }
+    }
 }
+
+// Logout function (standalone)
+function logout() {
+    try {
+        Swal.fire({
+            title: 'Signing You Out...',
+            html: 'Please wait while we securely log you out',
+            timer: 1500,
+            timerProgressBar: true,
+            didOpen: () => {
+                Swal.showLoading();
+                sessionStorage.removeItem('authToken');
+                sessionStorage.removeItem('role');
+                sessionStorage.removeItem('name');
+                sessionStorage.removeItem('initial');
+            },
+            willClose: () => {
+                window.location.href = '../login.html';
+            }
+        });
+    } catch (error) {
+        console.error('Logout error:', error);
+        Swal.fire({
+            title: 'Sign Out Error! ⚠️',
+            text: 'We encountered an issue while signing you out. Please try closing your browser for security.',
+            icon: 'error',
+            confirmButtonColor: '#dc3545',
+            confirmButtonText: 'I Understand',
+            footer: '<small>For security, please close your browser session</small>'
+        });
+    }
+}
+
+// Initialize the ProductManager when the DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if user is authenticated
+    const authToken = sessionStorage.getItem('authToken');
+    if (!authToken) {
+        window.location.href = '../login.html';
+        return;
+    }
+
+    // Initialize product management
+    window.productManager = new ProductManager();
+});

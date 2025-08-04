@@ -1,5 +1,5 @@
 // Shop page functionality
-$(document).ready(function () {
+$(document).ready(function() {
     // State management
     let allProducts = [];
     let filteredProducts = [];
@@ -21,7 +21,83 @@ $(document).ready(function () {
         checkAuthStatus();
         loadCategories();
         loadProducts();
+        initializeAutocomplete();
         bindEvents();
+    }
+
+    // Initialize search autocomplete
+    function initializeAutocomplete() {
+        $("#searchInput").autocomplete({
+            source: function(request, response) {
+                // If no search term, return empty array
+                if (!request.term) {
+                    response([]);
+                    return;
+                }
+
+                // First try to filter the existing products array for immediate response
+                const localResults = allProducts.filter(product => 
+                    product.item_name.toLowerCase().includes(request.term.toLowerCase())
+                ).map(item => ({
+                    label: item.item_name,
+                    value: item.item_name,
+                    id: item.item_id,
+                    price: item.item_price,
+                    image: item.item_img
+                }));
+
+                // Show local results immediately
+                response(localResults);
+
+                // Then make the API call for complete results
+                $.ajax({
+                    url: "http://localhost:8080/api/v1/product/search",
+                    method: "GET",
+                    data: { search: request.term },
+                    success: function(data) {
+                        if (!$("#searchInput").val()) return; // Don't update if input is cleared
+
+                        const items = data.map(item => ({
+                            label: item.item_name,
+                            value: item.item_name,
+                            id: item.item_id,
+                            price: item.item_price,
+                            image: item.item_img
+                        }));
+                        response(items);
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Search error:', error);
+                        // Keep showing local results on error
+                        response(localResults);
+                    }
+                });
+            },
+            // Reduce minLength to 1 for more responsive search
+            minLength: 1,
+            // Add delay to prevent too many requests
+            delay: 300,
+            minLength: 2,
+            select: function(event, ui) {
+                showProductDetail(ui.item.id);
+                return false;
+            }
+        }).autocomplete("instance")._renderItem = function(ul, item) {
+            return $("<li>")
+                .append(`
+                    <div class='autocomplete-item'>
+                        <img src='${item.image || "/images/placeholder.jpg"}' 
+                             alt='${escapeHtml(item.label)}'
+                             onerror="this.src='/images/placeholder.jpg'; this.onerror=null;"
+                             class="search-result-image">
+                        <div class='autocomplete-item-details'>
+                            <div class='autocomplete-item-name'>${escapeHtml(item.label)}</div>
+                            <div class='autocomplete-item-price'>₱${formatPrice(item.price)}</div>
+                        </div>
+                    </div>
+                `)
+                .appendTo(ul);
+        };
     }
 
     // Authentication check (same as homepage)
@@ -49,10 +125,17 @@ $(document).ready(function () {
     // Load categories for filter
     function loadCategories() {
         $.ajax({
-            url: 'http://localhost:8080/api/v1/categories',
+            url: 'http://localhost:8080/api/v1/product/categories',
             method: 'GET',
             success: function (data) {
-                categories = data || [];
+                console.log('Categories loaded:', data); // Debug log
+                if (Array.isArray(data)) {
+                    categories = data;
+                } else if (data && typeof data === 'object') {
+                    categories = data.categories || [];
+                } else {
+                    categories = [];
+                }
                 renderCategoryFilters();
             },
             error: function (error) {
@@ -81,11 +164,13 @@ $(document).ready(function () {
         `;
 
         categories.forEach(category => {
+            const categoryName = category.name || category.category_name;
+            const displayName = capitalizeFirstLetter(categoryName);
             html += `
                 <div class="category-filter">
-                    <input type="checkbox" id="cat-${category.id}" value="${category.id}">
-                    <label for="cat-${category.id}">${escapeHtml(category.name)}</label>
-                    <span class="category-count" id="count-${category.id}">0</span>
+                    <input type="checkbox" id="cat-${categoryName}" value="${categoryName}">
+                    <label for="cat-${categoryName}">${escapeHtml(displayName)}</label>
+                    <span class="category-count" id="count-${categoryName}">0</span>
                 </div>
             `;
         });
@@ -140,11 +225,11 @@ $(document).ready(function () {
         $('#count-all').text(allProducts.length);
         
         categories.forEach(category => {
+            const categoryName = category.name || category.category_name;
             const count = allProducts.filter(product => 
-                product.category_id === category.id || 
-                product.category_name === category.name
+                product.category_name === categoryName
             ).length;
-            $(`#count-${category.id}`).text(count);
+            $(`#count-${categoryName}`).text(count);
         });
     }
 
@@ -155,10 +240,10 @@ $(document).ready(function () {
         // Apply category filter
         if (!currentFilters.categories.includes('all') && currentFilters.categories.length > 0) {
             filtered = filtered.filter(product => {
-                return currentFilters.categories.some(catId => 
-                    product.category_id == catId || 
-                    categories.find(cat => cat.id == catId && cat.name === product.category_name)
-                );
+                return currentFilters.categories.some(categoryName => {
+                    // Compare category names directly
+                    return product.category_name === categoryName;
+                });
             });
         }
 
@@ -223,13 +308,17 @@ $(document).ready(function () {
                         </div>
                         <div class="product-info">
                             <h3 class="product-name">${escapeHtml(product.item_name)}</h3>
-                            <p class="product-category">${escapeHtml(product.category_name || 'Uncategorized')}</p>
+                            <p class="product-category">${escapeHtml(capitalizeFirstLetter(product.category_name) || 'Uncategorized')}</p>
                             <p class="product-price">₱${formatPrice(product.item_price)}</p>
                             ${product.item_desc ? `<p class="product-description">${escapeHtml(product.item_desc.substring(0, 150))}${product.item_desc.length > 150 ? '...' : ''}</p>` : ''}
                         </div>
                         <div class="product-actions">
                             <button class="wishlist-btn" data-product-id="${product.item_id}">
                                 <i class="fas fa-heart"></i>
+                            </button>
+                            <button class="add-to-cart-btn" data-product-id="${product.item_id}" ${product.stock_qty <= 0 ? 'disabled' : ''}>
+                                <i class="fas fa-shopping-cart"></i>
+                                ${product.stock_qty <= 0 ? 'Out of Stock' : 'Add to Cart'}
                             </button>
                         </div>
                     </div>
@@ -246,11 +335,15 @@ $(document).ready(function () {
                         </div>
                         <div class="product-info">
                             <h3 class="product-name">${escapeHtml(product.item_name)}</h3>
-                            <p class="product-category">${escapeHtml(product.category_name || 'Uncategorized')}</p>
+                            <p class="product-category">${escapeHtml(capitalizeFirstLetter(product.category_name) || 'Uncategorized')}</p>
                             <p class="product-price">₱${formatPrice(product.item_price)}</p>
                             <div class="product-actions">
                                 <button class="wishlist-btn" data-product-id="${product.item_id}">
                                     <i class="fas fa-heart"></i>
+                                </button>
+                                <button class="add-to-cart-btn" data-product-id="${product.item_id}" ${product.stock_qty <= 0 ? 'disabled' : ''}>
+                                    <i class="fas fa-shopping-cart"></i>
+                                    ${product.stock_qty <= 0 ? 'Out of Stock' : 'Add to Cart'}
                                 </button>
                             </div>
                         </div>
@@ -323,6 +416,69 @@ $(document).ready(function () {
 
     // Bind events
     function bindEvents() {
+        // Heart icon (Wishlist) click
+        $('.fas.fa-heart').on('click', function() {
+            if (!sessionStorage.getItem('authToken')) {
+                Swal.fire({
+                    title: 'Please Log In',
+                    text: 'You need to be logged in to access your wishlist',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Log In',
+                    cancelButtonText: 'Cancel'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.href = '../login.html';
+                    }
+                });
+                return;
+            }
+            window.location.href = '../user/wishlist.html';
+        });
+
+        // Shopping bag icon click
+        $('.fas.fa-shopping-bag').on('click', function() {
+            window.location.href = 'cart.html';
+        });
+
+        // User avatar click
+        $('#userAvatar').on('click', function(e) {
+            e.stopPropagation();
+            $('#dropdownMenu').toggleClass('active');
+        });
+
+        // Close dropdown when clicking outside
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('.user-dropdown').length) {
+                $('#dropdownMenu').removeClass('active');
+            }
+        });
+
+        // Logout button click
+        $('#logoutBtn').on('click', function(e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Logout',
+                text: 'Are you sure you want to log out?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, logout',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    sessionStorage.clear();
+                    window.location.href = '../login.html';
+                }
+            });
+        });
+
+        // Mobile menu toggle
+        $('#mobileToggle').on('click', function() {
+            $(this).toggleClass('active');
+            $('#navLinks').toggleClass('active');
+            $('.nav-icons').toggleClass('active');
+        });
+
         // Category filter change
         $(document).on('change', '.category-filter input[type="checkbox"]', function() {
             const value = $(this).val();
@@ -348,6 +504,8 @@ $(document).ready(function () {
                     }
                 }
             }
+            // Immediately apply filters when category changes
+            applyFilters();
         });
 
         // Price range inputs
@@ -465,6 +623,44 @@ $(document).ready(function () {
             toggleWishlist(productId, this);
         });
 
+        // Add to cart button click (works for both grid and modal)
+        $(document).on('click', '.add-to-cart-btn', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const productId = $(this).data('product-id');
+            const $btn = $(this);
+
+            if ($btn.prop('disabled')) {
+                return;
+            }
+
+            // Show loading state
+            const originalText = $btn.html();
+            $btn.prop('disabled', true)
+                .html('<i class="fas fa-spinner fa-spin"></i> Adding...');
+
+            // Call addToCart function
+            addToCart(productId, 1, function(success, response) {
+                if (success) {
+                    // Visual feedback with button animation
+                    $btn.addClass('added');
+                    setTimeout(() => $btn.removeClass('added'), 1000);
+
+                    // If we're in the modal, close it after successful add
+                    if ($btn.closest('#productModal').length) {
+                        setTimeout(() => {
+                            $('#productModal').hide();
+                            $('body').css('overflow', 'auto');
+                        }, 1500);
+                    }
+                }
+                // Reset button state
+                setTimeout(() => {
+                    $btn.prop('disabled', false).html(originalText);
+                }, 1000);
+            });
+        });
+
         // Pagination clicks
         $(document).on('click', '.pagination-btn[data-page]', function() {
             currentPage = parseInt($(this).data('page'));
@@ -567,6 +763,70 @@ $(document).ready(function () {
         // For now, we'll just update the UI
     }
 
+    // Add to cart function
+    function addToCart(productId, quantity = 1, callback = null) {
+        const authToken = sessionStorage.getItem('authToken');
+        
+        if (!authToken) {
+            Swal.fire({
+                title: 'Please Log In',
+                text: 'You need to be logged in to add items to cart',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Log In',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = '/frontend/views/customer/login.html';
+                }
+            });
+            if (callback) callback(false, { message: 'Not logged in' });
+            return;
+        }
+
+        $.ajax({
+            url: 'http://localhost:8080/api/v1/cart/add',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
+            },
+            data: JSON.stringify({
+                item_id: productId,
+                quantity: quantity
+            }),
+            contentType: 'application/json',
+            success: function(response) {
+                // Update cart count badge
+                const count = response.count || (parseInt($('.cart-count').text() || '0') + 1);
+                $('.cart-count').text(count).toggleClass('hidden', count === 0);
+                
+                Swal.fire({
+                    title: 'Added to Cart! 🛍️',
+                    text: 'Item successfully added to your cart',
+                    icon: 'success',
+                    showConfirmButton: false,
+                    timer: 1500,
+                    toast: true,
+                    position: 'top-end'
+                });
+                if (callback) callback(true, response);
+            },
+            error: function(xhr, status, error) {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Failed to add item to cart. Please try again.',
+                    icon: 'error',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000
+                });
+                if (callback) callback(false, { message: error });
+            }
+        });
+    }
+
     // Show product detail modal
     function showProductDetail(productId) {
         const loadingHTML = `
@@ -639,7 +899,7 @@ $(document).ready(function () {
                         <div class="specs-grid">
                             <div class="spec-item">
                                 <span class="spec-label">Category:</span>
-                                <span class="spec-value">${escapeHtml(product.category_name || 'Uncategorized')}</span>
+                                <span class="spec-value">${escapeHtml(capitalizeFirstLetter(product.category_name) || 'Uncategorized')}</span>
                             </div>
                             <div class="spec-item">
                                 <span class="spec-label">Stock:</span>
@@ -650,9 +910,9 @@ $(document).ready(function () {
 
                     <div class="product-actions">
                         <div class="action-buttons">
-                            <button class="wishlist-btn-detail" data-product-id="${product.item_id}">
-                                <i class="far fa-heart"></i>
-                                Add to Wishlist
+                            <button class="add-to-cart-btn" data-product-id="${product.item_id}" ${product.stock_qty <= 0 ? 'disabled' : ''}>
+                                <i class="fas fa-shopping-cart"></i>
+                                ${product.stock_qty <= 0 ? 'Out of Stock' : 'Add to Cart'}
                             </button>
                         </div>
                     </div>
@@ -692,4 +952,10 @@ $(document).ready(function () {
             maximumFractionDigits: 2
         });
     }
+
+    function capitalizeFirstLetter(string) {
+        if (!string) return '';
+        return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
+    }
 });
+

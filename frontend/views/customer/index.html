@@ -8,7 +8,105 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
     <link rel="stylesheet" href="../../css/customer/homepage.css">
+    <style>
+        /* Header Layout */
+        .navbar {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            padding: 0.5rem 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Search Container */
+        .search-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            flex: 1;
+            max-width: 400px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 40px 10px 16px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .search-input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--gold);
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 16px;
+            color: var(--gold);
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus + .search-icon {
+            transform: scale(1.1);
+        }
+
+        /* jQuery UI Autocomplete customization */
+        .ui-autocomplete {
+            max-height: 400px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            border-radius: 15px;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            padding: 0.5rem;
+            font-family: 'Montserrat', sans-serif;
+            z-index: 1100;
+        }
+
+        .ui-menu {
+            padding: 0;
+            border: none;
+            background: none;
+        }
+
+        .ui-menu-item {
+            margin: 0.25rem 0;
+            border-radius: 10px;
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        .ui-menu-item-wrapper {
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: none !important;
+            margin: 0 !important;
+        }
+
+        .ui-menu-item-wrapper.ui-state-active {
+            background: rgba(212, 175, 55, 0.15) !important;
+            border: none !important;
+            margin: 0 !important;
+            color: var(--gold) !important;
+        }
+    </style>
 </head>
 <body>
     <!-- Header/Navbar -->
@@ -23,13 +121,18 @@
             </div>
             
             <div class="nav-links" id="navLinks">
-                <a href="#">Home</a>
+                <a href="#" class="active">Home</a>
                 <a href="shop.html">Shop</a>
             </div>
             
+            <!-- Search Container -->
+            <div class="search-container">
+                <input type="text" class="search-input" id="searchInput" placeholder="Search products...">
+                <i class="fas fa-search search-icon"></i>
+            </div>
+
             <!-- Guest Navigation (default hidden if logged in) -->
             <div class="nav-icons" id="guestNav">
-                <i class="fas fa-search" title="Search"></i>
                 <a href="../login.html" class="login-btn" id="loginBtn">Login</a>
             </div>
 
@@ -39,7 +142,7 @@
                     <span>Welcome back,</span>
                     <span id="userName">Guest</span>
                 </div>
-                <i class="fas fa-search" title="Search"></i>
+                <i class="fas fa-heart" title="Wishlist"></i>
                 <div class="cart-badge">
                     <i class="fas fa-shopping-bag" title="Shopping Cart" onclick="window.location.href='cart.html'"></i>
                     <span class="cart-count hidden" id="userCartCount">0</span>
@@ -51,7 +154,7 @@
                             <i class="fas fa-user"></i>
                             My Profile
                         </a>
-                        <a href="../user/orders.html" class="dropdown-item">
+                        <a href="../customer/orders.html" class="dropdown-item">
                             <i class="fas fa-box"></i>
                             My Orders
                         </a>
@@ -59,7 +162,7 @@
                             <i class="fas fa-cog"></i>
                             Settings
                         </a>
-                        <a href="#" class="dropdown-item" id="logoutBtn">
+                        <a href="#" onclick="logout()" class="dropdown-item" id="logoutBtn">
                             <i class="fas fa-sign-out-alt"></i>
                             Logout
                         </a>

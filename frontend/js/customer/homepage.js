@@ -35,7 +35,7 @@ $(document).ready(function () {
 
             if (!sessionStorage.getItem('swalWelcomeShown')) {
                 Swal.fire({
-                    title: `Welcome back, ${userName || 'Valued Customer'}! 👋`,
+                    title: `Welcome, ${userName || 'Valued Customer'}! 👋`,
                     text: 'Ready to discover more beautiful jewelry pieces?',
                     icon: 'success',
                     showConfirmButton: false,

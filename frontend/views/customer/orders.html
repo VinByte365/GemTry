@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Orders - GemGem Jewelry</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">   
+    <link rel="stylesheet" href="../../css/customer/orders.css">
+    <link rel="stylesheet" href="../../css/customer/shop.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <header>
+        <nav class="navbar">
+            <a href="/frontend/views/customer/home.html" class="logo">GemGem</a>
+            <div class="nav-links">
+                <a href="/frontend/views/customer/home.html">Home</a>
+                <a href="/frontend/views/customer/shop.html">Shop</a>
+                <a href="/frontend/views/customer/orders.html" class="active">Orders</a>
+            </div>
+            <div class="search-container">
+                <input type="text" id="searchInput" class="search-input" placeholder="Search products...">
+                <i class="fas fa-search search-icon"></i>
+            </div>
+            <div id="guestNav" class="nav-icons">
+                <a href="/frontend/views/customer/login.html" class="login-btn">Login</a>
+            </div>
+            <div id="userNav" class="nav-icons hidden">
+                <div class="cart-badge">
+                    <a href="/frontend/views/customer/cart.html">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span class="cart-count hidden">0</span>
+                    </a>
+                </div>
+                <div class="user-dropdown">
+                    <div id="userAvatar" class="user-avatar"></div>
+                    <div id="dropdownMenu" class="dropdown-menu">
+                        <a href="/frontend/views/customer/profile.html" class="dropdown-item">
+                            <i class="fas fa-user"></i> Profile
+                        </a>
+                        <a href="/frontend/views/customer/orders.html" class="dropdown-item">
+                            <i class="fas fa-shopping-bag"></i> My Orders
+                        </a>
+                        <a href="#" onclick= "logout()" class="dropdown-item" id="logoutBtn">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="orders-container">
+        <div class="orders-header">
+            <h1>My Orders</h1>
+            <p>Track and manage your orders</p>
+        </div>
+
+        <!-- Order Filters -->
+        <div class="orders-filters">
+            <div class="filter-group">
+                <select id="statusFilter" class="filter-select">
+                    <option value="all">All Orders</option>
+                    <option value="pending">Pending</option>
+                    <option value="processing">Processing</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+                <select id="timeFilter" class="filter-select">
+                    <option value="all">All Time</option>
+                    <option value="last7">Last 7 Days</option>
+                    <option value="last30">Last 30 Days</option>
+                    <option value="last90">Last 90 Days</option>
+                </select>
+            </div>
+            <div class="search-orders">
+                <input type="text" id="orderSearch" placeholder="Search by Order ID...">
+                <i class="fas fa-search"></i>
+            </div>
+        </div>
+
+        <!-- Orders List -->
+        <div class="orders-list">
+            <!-- Orders will be loaded here dynamically -->
+        </div>
+
+        <!-- No Orders State -->
+        <div id="noOrders" class="no-orders hidden">
+            <div class="no-orders-icon">🛍️</div>
+            <h2>No Orders Found</h2>
+            <p>You haven't placed any orders yet.</p>
+            <a href="/frontend/views/customer/shop.html" class="shop-now-btn">Start Shopping</a>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingOrders" class="loading-orders hidden">
+            <div class="loading-spinner"></div>
+            <p>Loading your orders...</p>
+        </div>
+    </main>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/frontend/js/customer/orders.js"></script>
+</body>
+</html>

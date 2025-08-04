@@ -243,20 +243,7 @@ function applyFiltersAndUpdateTable() {
     ordersTable.draw();
 }
 
-function showLoadingIndicator() {
-    $('#initialLoadingIndicator').show();
-}
-
-function showLoadMoreIndicator() {
-    $('#loadMoreIndicator').show();
-}
-
-function hideLoadingIndicators() {
-    $('#initialLoadingIndicator').hide();
-    $('#loadMoreIndicator').hide();
-}
-
-function updateOrderCount() {
+function updateOrderCount() { //
     const totalCount = allOrders.length;
     const filteredCount = filteredOrders.length;
     const totalAvailable = CONFIG.infiniteScroll.totalRecords;
@@ -278,7 +265,7 @@ function updateOrderCount() {
     $('#orderCountDisplay').text(countText);
 }
 
-function getTableColumns() {
+function getTableColumns() { //
     return [
         {
             data: null,
@@ -364,6 +351,18 @@ function getTableColumns() {
     ];
 }
 
+function showLoadingIndicator() {
+    $('#initialLoadingIndicator').show();
+}
+
+function showLoadMoreIndicator() {
+    $('#loadMoreIndicator').show();
+}
+
+function hideLoadingIndicators() {
+    $('#initialLoadingIndicator').hide();
+    $('#loadMoreIndicator').hide();
+}
 function renderStatusBadge(status) {
     const config = CONFIG.statusConfig[status] || CONFIG.statusConfig.pending;
     return `<span class="badge ${config.class}">
@@ -912,65 +911,33 @@ function showSuccessAlert(title, message) {
 }
 
 function logout() {
-    Swal.fire({
-        title: 'Sign Out Confirmation 🚪',
-        text: 'Are you sure you want to sign out of your GemTry account?',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#d4af37',
-        cancelButtonColor: '#6c757d',
-        confirmButtonText: 'Yes, Sign Out',
-        cancelButtonText: 'Stay Signed In',
-        backdrop: true,
-        reverseButtons: true
-    }).then((result) => {
-        if (result.isConfirmed) {
-            try {
-                // Show signing out process
+    try {
                 Swal.fire({
-                    title: 'Signing You Out... 🔄',
-                    text: 'Securely logging you out of your account',
-                    icon: 'info',
-                    showConfirmButton: false,
-                    allowOutsideClick: false,
+                    title: 'Signing You Out...',
+                    html: 'Please wait while we securely log you out',
+                    timer: 1500,
+                    timerProgressBar: true,
                     didOpen: () => {
                         Swal.showLoading();
+                        sessionStorage.removeItem('authToken');
+                        sessionStorage.removeItem('role');
+                        sessionStorage.removeItem('name');
+                        sessionStorage.removeItem('initial');
+                    },
+                    willClose: () => {
+                        window.location.href = '../login.html';
                     }
                 });
-
-                // Simulate logout delay for better UX
-                setTimeout(() => {
-                    // Clear session storage
-                    sessionStorage.removeItem('authToken');
-                    sessionStorage.removeItem('role');
-                    sessionStorage.removeItem('name');
-                    sessionStorage.removeItem('initial');
-                    
-                    // Success notification
-                    Swal.fire({
-                        title: 'Successfully Signed Out! 👋',
-                        text: 'Thank you for visiting GemTry. Come back soon for more beautiful jewelry!',
-                        icon: 'success',
-                        confirmButtonColor: '#d4af37',
-                        confirmButtonText: 'Browse More',
-                        timer: 4000,
-                        timerProgressBar: true
-                    }).then(() => {
-                        window.location.href = '../login.html';
-                    });
-                }, 1500);
-                
-            } catch (error) {
-                console.error('Logout error:', error);
-                Swal.fire({
-                    title: 'Sign Out Error! ⚠️',
-                    text: 'We encountered an issue while signing you out. Please try closing your browser for security.',
-                    icon: 'error',
-                    confirmButtonColor: '#dc3545',
-                    confirmButtonText: 'I Understand',
-                    footer: '<small>For security, please close your browser session</small>'
-                });
-            }
-        }
-    });
-}
+                        
+                    } catch (error) {
+                        console.error('Logout error:', error);
+                        Swal.fire({
+                            title: 'Sign Out Error! ⚠️',
+                            text: 'We encountered an issue while signing you out. Please try closing your browser for security.',
+                            icon: 'error',
+                            confirmButtonColor: '#dc3545',
+                            confirmButtonText: 'I Understand',
+                            footer: '<small>For security, please close your browser session</small>'
+                        });
+                    }
+    }
