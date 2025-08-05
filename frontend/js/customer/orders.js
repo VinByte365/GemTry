@@ -1,8 +1,9 @@
 // Orders page functionality
-$(document).ready(function() {
+
+$(document).ready(function () {
     // Check authentication
     checkAuthStatus();
-    
+
     // Load orders
     loadOrders();
 
@@ -20,7 +21,7 @@ $(document).ready(function() {
         
         if (!authToken) {
             // Redirect to login if not authenticated
-            window.location.href = '/frontend/views/customer/login.html';
+            window.location.href = '../../login.html';
             return;
         }
 

@@ -80,16 +80,16 @@ exports.searchProducts = (req, res) => {
 };
 
 // Helper function to get category ID by name
-// async function getCategoryNameById(categoryId) {
-//     return new Promise((resolve, reject) => {
-//         const sql = 'SELECT category_name FROM categories WHERE category_id = ?';
-//         db.execute(sql, [categoryId], (err, results) => {
-//             if (err) return reject(err);
-//             if (results.length === 0) return resolve(null);
-//             resolve(results[0].category_name);
-//         });
-//     });
-// }
+async function getCategoryNameById(categoryId) {
+    return new Promise((resolve, reject) => {
+        const sql = 'SELECT category_name FROM categories WHERE category_id = ?';
+        db.execute(sql, [categoryId], (err, results) => {
+            if (err) return reject(err);
+            if (results.length === 0) return resolve(null);
+            resolve(results[0].category_name);
+        });
+    });
+}
 
 // Helper function to create a new category
 // async function createCategory(categoryName) {
@@ -255,6 +255,7 @@ db.execute(sql, [id], (err, results) => {
 // Update product with category and stock
 exports.updateProductDetails = async (req, res) => {
     const { name, description, price, stock, category } = req.body;
+    console.log(category);
     const productId = req.params.id;
 
     if (!name) {
@@ -311,18 +312,46 @@ exports.updateProductDetails = async (req, res) => {
 
         // 2. Update stock only if stock value is provided
         if (stock) {
-            await db.promise().query(
-                `UPDATE stocks SET qty = ? WHERE item_id = ?`,
-                [stock, productId]
+            const [stockExists] = await db.promise().query(
+                `SELECT 1 FROM stocks WHERE item_id = ?`,
+                [productId]
             );
+        
+            if (stockExists.length > 0) {
+                // Update stock if it exists
+                await db.promise().query(
+                    `UPDATE stocks SET qty = ? WHERE item_id = ?`,
+                    [stock, productId]
+                );
+            } else {
+                // Insert stock if it does not exist
+                await db.promise().query(
+                    `INSERT INTO stocks (item_id, qty) VALUES (?, ?)`,
+                    [productId, stock]
+                );
+            }
         }
-
-        // 3. Update category only if category value is provided
+        
+        // 3. Update or Insert category
         if (category) {
-            await db.promise().query(
-                `UPDATE item_category SET category_id = ? WHERE item_id = ?`,
-                [category, productId]
+            const [categoryExists] = await db.promise().query(
+                `SELECT 1 FROM item_category WHERE item_id = ?`,
+                [productId]
             );
+        
+            if (categoryExists.length > 0) {
+                // Update category if it exists
+                await db.promise().query(
+                    `UPDATE item_category SET category_id = ? WHERE item_id = ?`,
+                    [category, productId]
+                );
+            } else {
+                // Insert category if it does not exist
+                await db.promise().query(
+                    `INSERT INTO item_category (item_id, category_id) VALUES (?, ?)`,
+                    [productId, category]
+                );
+            }
         }
 
         // 4. Handle gallery images if uploaded

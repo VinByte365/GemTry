@@ -1,5 +1,8 @@
+
+
 // This script handles the dashboard functionality and data visualization
 document.addEventListener('DOMContentLoaded', function() {
+    checkAuthStatus();
     // Initialize charts with empty data
     initializeCharts();
     
@@ -9,6 +12,30 @@ document.addEventListener('DOMContentLoaded', function() {
     // Refresh data every 5 minutes
     setInterval(fetchDashboardData, 300000);
 });
+
+function checkAuthStatus() {
+    const role = sessionStorage.getItem('role');
+    const authToken = sessionStorage.getItem('authToken');
+    const userName = sessionStorage.getItem('name');
+    const userInitial = sessionStorage.getItem('initial');
+    
+    if (!authToken || role != 'admin') {
+        // Redirect to login if not authenticated
+        window.location.href = '../403.html';
+        return;
+    }
+
+    // Update UI for authenticated user
+    $('#guestNav').addClass('hidden');
+    $('#userNav').removeClass('hidden');
+    
+    if (userName) {
+        $('#userName').text(userName);
+    }
+    if (userInitial) {
+        $('#userAvatar').text(userInitial);
+    }
+}
 
 function initializeCharts() {
     // Sales Over Time Line Chart

@@ -348,7 +348,7 @@ class ProductManager {
     // Format row data for DataTable
     createProductRow(product) {
         const imageHtml = product.item_img ? 
-            `<img src="/${product.item_img}" alt="${product.item_name}" class="product-thumbnail me-2" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">` : 
+            `<img src="http://localhost:8080/${product.item_img}" alt="${product.item_name}" class="product-thumbnail me-2" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">` : 
             '<div class="product-thumbnail me-2 bg-light d-inline-block text-center" style="width: 40px; height: 40px; line-height: 40px; color: #ccc; border-radius: 4px;">No Image</div>';
 
         const qty = parseInt(product.stock_qty || 0);
