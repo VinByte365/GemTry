@@ -1,6 +1,7 @@
 // Orders page functionality
 
 $(document).ready(function () {
+    const baseURL = 'http://localhost:8080/';
     // Check authentication
     checkAuthStatus();
 
@@ -42,7 +43,7 @@ $(document).ready(function () {
         showLoading();
         
         $.ajax({
-            url: 'http://localhost:8080/api/v1/orders',
+            url: `http://localhost:8080/api/v1/order/user/${sessionStorage.getItem('userId')}`,
             method: 'GET',
             headers: {
                 'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
@@ -63,53 +64,53 @@ $(document).ready(function () {
     }
 
     // Function to render orders
-    function renderOrders(orders) {
-        const ordersList = $('.orders-list');
-        ordersList.empty();
+        function renderOrders(orders) {
+            const ordersList = $('.orders-list');
+            ordersList.empty();
 
-        orders.forEach(order => {
-            const orderHtml = `
-                <div class="order-card">
-                    <div class="order-header">
-                        <div class="order-id">Order #${order.order_id}</div>
-                        <div class="order-date">${formatDate(order.created_at)}</div>
-                        <div class="order-status status-${order.status.toLowerCase()}">${capitalizeFirstLetter(order.status)}</div>
-                    </div>
-                    
-                    <div class="order-items">
-                        ${renderOrderItems(order.items)}
-                    </div>
-                    
-                    <div class="order-summary">
-                        <div class="order-total">Total: ₱${formatPrice(order.total_amount)}</div>
-                        <div class="order-actions">
-                            <button class="view-details-btn" onclick="viewOrderDetails('${order.order_id}')">
-                                View Details
-                            </button>
-                            ${order.status !== 'DELIVERED' && order.status !== 'CANCELLED' ? `
-                                <button class="track-order-btn" onclick="trackOrder('${order.order_id}')">
-                                    Track Order
+            orders.forEach(order => {
+                const orderHtml = `
+                    <div class="order-card">
+                        <div class="order-header">
+                            <div class="order-id">Order #${order.order_id}</div>
+                            <div class="order-date">${formatDate(order.created_at)}</div>
+                            <div class="order-status status-${order.status.toLowerCase()}">${capitalizeFirstLetter(order.status)}</div>
+                        </div>
+                        
+                        <div class="order-items">
+                            ${renderOrderItems(order.items)}
+                        </div>
+                        
+                        <div class="order-summary">
+                            <div class="order-total">Total: ₱${formatPrice(order.total_amount)}</div>
+                            <div class="order-actions">
+                                <button class="view-details-btn" onclick="viewOrderDetails('${order.order_id}')">
+                                    View Details
                                 </button>
-                            ` : ''}
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
-            ordersList.append(orderHtml);
-        });
-    }
+                `;
+                ordersList.append(orderHtml);
+            });
+        }
 
     // Function to render order items
     function renderOrderItems(items) {
         return items.map(item => `
-            <div class="order-item">
-                <img src="${item.item_img || '/images/placeholder.jpg'}" 
+            <div class="order-item" style="display: flex; align-items: center; margin-bottom: 10px;">
+                <img src="${baseURL + item.item_img || '/images/placeholder.jpg'}" 
                      alt="${escapeHtml(item.item_name)}"
-                     onerror="this.src='/images/placeholder.jpg'; this.onerror=null;">
-                <span class="item-count">×${item.quantity}</span>
+                     onerror="this.src='/images/placeholder.jpg'; this.onerror=null;"
+                     style="width: 50px; height: 50px; object-fit: cover; margin-right: 10px; border-radius: 4px;">
+                <div class="item-details">
+                    <h4 class="item-name" style="margin: 0; font-weight: bold; font-size: 1rem;">${escapeHtml(item.item_name)}</h4>
+                </div>
             </div>
         `).join('');
     }
+    
+    
 
     // Function to initialize filters
     function initializeFilters() {
@@ -162,12 +163,12 @@ $(document).ready(function () {
     // Function to view order details
     window.viewOrderDetails = function(orderId) {
         $.ajax({
-            url: `http://localhost:8080/api/v1/orders/${orderId}`,
+            url: `http://localhost:8080/api/v1/order/${orderId}`,
             method: 'GET',
             headers: {
                 'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
             },
-            success: function(data) {
+            success: function (data) {
                 showOrderDetails(data);
             },
             error: function(xhr, status, error) {
@@ -180,49 +181,35 @@ $(document).ready(function () {
         });
     };
 
-    // Function to track order
-    window.trackOrder = function(orderId) {
-        $.ajax({
-            url: `http://localhost:8080/api/v1/orders/${orderId}/track`,
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + sessionStorage.getItem('authToken')
-            },
-            success: function(data) {
-                showTrackingDetails(data);
-            },
-            error: function(xhr, status, error) {
-                Swal.fire({
-                    title: 'Error',
-                    text: 'Failed to load tracking information. Please try again.',
-                    icon: 'error'
-                });
-            }
-        });
-    };
-
     // Function to show order details
     function showOrderDetails(order) {
+        // Debugging: Log the order object to ensure it contains the expected data
+        console.log('Order object:', order);
+    
         Swal.fire({
-            title: `Order #${order.order_id}`,
+            title: `Order #${order?.order?.order_id || 'N/A'}`, // Safely access order_id
             html: `
                 <div class="order-details">
                     <div class="order-info">
-                        <p><strong>Date:</strong> ${formatDate(order.created_at)}</p>
-                        <p><strong>Status:</strong> ${capitalizeFirstLetter(order.status)}</p>
-                        <p><strong>Total Amount:</strong> ₱${formatPrice(order.total_amount)}</p>
+                        <p><strong>Date:</strong> ${order?.order?.created_at ? formatDate(order.order.created_at) : 'N/A'}</p>
+                        <p><strong>Status:</strong> ${order?.order?.status ? capitalizeFirstLetter(order.order.status) : 'N/A'}</p>
+                        <p><strong>Total Amount:</strong> ₱${order?.order?.total_amount ? formatPrice(order.order.total_amount) : '0.00'}</p>
                     </div>
                     <div class="order-items-list">
-                        ${order.items.map(item => `
-                            <div class="order-item-detail">
-                                <img src="${item.item_img || '/images/placeholder.jpg'}" alt="${escapeHtml(item.item_name)}">
-                                <div class="item-info">
-                                    <h4>${escapeHtml(item.item_name)}</h4>
-                                    <p>Quantity: ${item.quantity}</p>
-                                    <p>Price: ₱${formatPrice(item.item_price)}</p>
+                        ${
+                            Array.isArray(order.items) && order.items.length > 0
+                            ? order.items.map(item => `
+                                <div class="order-item-detail">
+                                    <img src="${item.item_img ? baseURL + item.item_img : '/images/placeholder.jpg'}" alt="${escapeHtml(item.item_name || 'Item')}">
+                                    <div class="item-info">
+                                        <h4>${escapeHtml(item.item_name || 'Unnamed Item')}</h4>
+                                        <p>Quantity: ${item.quantity || 0}</p>
+                                        <p>Price: ₱${item.item_price ? formatPrice(item.item_price) : '0.00'}</p>
+                                    </div>
                                 </div>
-                            </div>
-                        `).join('')}
+                            `).join('')
+                            : '<p>No items found for this order.</p>'
+                        }
                     </div>
                 </div>
             `,
@@ -233,25 +220,25 @@ $(document).ready(function () {
     }
 
     // Function to show tracking details
-    function showTrackingDetails(tracking) {
-        Swal.fire({
-            title: 'Order Tracking',
-            html: `
-                <div class="order-timeline">
-                    ${tracking.events.map(event => `
-                        <div class="timeline-item">
-                            <div class="timeline-date">${formatDate(event.timestamp)}</div>
-                            <div class="timeline-status">${event.status}</div>
-                            <div class="timeline-description">${event.description}</div>
-                        </div>
-                    `).join('')}
-                </div>
-            `,
-            width: '600px',
-            showCloseButton: true,
-            showConfirmButton: false
-        });
-    }
+    // function showTrackingDetails(tracking) {
+    //     Swal.fire({
+    //         title: 'Order Tracking',
+    //         html: `
+    //             <div class="order-timeline">
+    //                 ${tracking.events.map(event => `
+    //                     <div class="timeline-item">
+    //                         <div class="timeline-date">${formatDate(event.timestamp)}</div>
+    //                         <div class="timeline-status">${event.status}</div>
+    //                         <div class="timeline-description">${event.description}</div>
+    //                     </div>
+    //                 `).join('')}
+    //             </div>
+    //         `,
+    //         width: '600px',
+    //         showCloseButton: true,
+    //         showConfirmButton: false
+    //     });
+    // }
 
     // Helper Functions
     function showLoading() {
@@ -297,8 +284,10 @@ $(document).ready(function () {
     }
 
     function capitalizeFirstLetter(string) {
+        if (!string || typeof string !== 'string') return '';
         return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
     }
+    
 
     function escapeHtml(text) {
         const div = document.createElement('div');

@@ -135,6 +135,7 @@ exports.updateOrderStatus = async (req, res) => {
 
 
 // function buildOrderEmail(order, items, user, status, statusMessage) {
+
 //     const itemListHtml = items.map(item => `
 //         <tr>
 //             <td>${item.item_name}</td>
@@ -172,10 +173,12 @@ exports.updateOrderStatus = async (req, res) => {
 //         </div>
 //     `;
 // }
+//
 
+//for admin page
 exports.fetchOneOrder = (req, res) => {
     const orderId = req.params.id;
-    
+    console.log('Fetching order details for order ID:', orderId);
     // Fetch order details with customer info
     const orderQuery = `
         SELECT 
@@ -232,3 +235,58 @@ exports.fetchOneOrder = (req, res) => {
         });
     });
 };
+
+exports.fetchUserOrders = async (req, res) => {
+    const userId = req.user?.id;
+
+    try {
+        // Get all orders for the user
+        const [orders] = await db.promise().query(`
+            SELECT 
+                o.order_id,
+                o.order_status AS status,
+                o.order_placed AS created_at,
+                COALESCE(SUM(ol.order_price * ol.qty), 0) AS total_amount
+            FROM orders o
+            LEFT JOIN orderlines ol ON o.order_id = ol.order_id
+            WHERE o.user_id = ?
+            GROUP BY o.order_id, o.order_status, o.order_placed
+            ORDER BY o.order_placed DESC
+        `, [userId]);
+
+        // If no orders, return empty array
+        if (orders.length === 0) return res.status(200).json([]);
+
+        // Get all items for all orders
+        const orderIds = orders.map(o => o.order_id);
+        const [items] = await db.promise().query(`
+            SELECT 
+                ol.order_id,
+                ol.qty AS quantity,
+                ol.order_price AS item_price,
+                i.item_name,
+                i.item_img
+            FROM orderlines ol
+            JOIN items i ON ol.item_id = i.item_id
+            WHERE ol.order_id IN (?)
+        `, [orderIds]);
+
+        // Group items under their respective orders
+        const orderMap = {};
+        orders.forEach(order => {
+            order.items = [];
+            orderMap[order.order_id] = order;
+        });
+
+        items.forEach(item => {
+            orderMap[item.order_id].items.push(item);
+        });
+console.log('Orders with items:', items);
+        res.status(200).json(orders);
+
+    } catch (err) {
+        console.error('Error fetching user orders with items:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+

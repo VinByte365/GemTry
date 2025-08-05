@@ -13,22 +13,21 @@
     <!-- Navigation -->
     <header>
         <nav class="navbar">
-            <a href="/frontend/views/customer/home.html" class="logo">GemTry</a>
+            <a href="../customer/index.html" class="logo">GemTry</a>
             <div class="nav-links">
-                <a href="/frontend/views/customer/home.html">Home</a>
-                <a href="/frontend/views/customer/shop.html">Shop</a>
-                <a href="/frontend/views/customer/orders.html" class="active">Orders</a>
+                <a href="../customer/index.html">Home</a>
+                <a href="../customer/shop.html">Shop</a>
             </div>
             <div class="search-container">
                 <input type="text" id="searchInput" class="search-input" placeholder="Search products...">
                 <i class="fas fa-search search-icon"></i>
             </div>
             <div id="guestNav" class="nav-icons">
-                <a href="/frontend/views/customer/login.html" class="login-btn">Login</a>
+                <a href="../login.html" class="login-btn">Login</a>
             </div>
             <div id="userNav" class="nav-icons hidden">
                 <div class="cart-badge">
-                    <a href="/frontend/views/customer/cart.html">
+                    <a href="../customer/cart.html">
                         <i class="fas fa-shopping-cart"></i>
                         <span class="cart-count hidden">0</span>
                     </a>
@@ -39,7 +38,7 @@
                         <a href="/frontend/views/customer/profile.html" class="dropdown-item">
                             <i class="fas fa-user"></i> Profile
                         </a>
-                        <a href="/frontend/views/customer/orders.html" class="dropdown-item">
+                        <a href="../customer/orders.html" class="dropdown-item">
                             <i class="fas fa-shopping-bag"></i> My Orders
                         </a>
                         <a href="#" onclick= "logout()" class="dropdown-item" id="logoutBtn">
@@ -92,7 +91,7 @@
             <div class="no-orders-icon">🛍️</div>
             <h2>No Orders Found</h2>
             <p>You haven't placed any orders yet.</p>
-            <a href="/frontend/views/customer/shop.html" class="shop-now-btn">Start Shopping</a>
+            <a href="../customer/shop.html" class="shop-now-btn">Start Shopping</a>
         </div>
 
         <!-- Loading State -->

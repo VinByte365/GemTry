@@ -1,6 +1,7 @@
 // Shop page functionality
 $(document).ready(function() {
     // State management
+    const baseURL = 'http://localhost:8080/';
     let allProducts = [];
     let filteredProducts = [];
     let categories = [];
@@ -86,7 +87,7 @@ $(document).ready(function() {
             return $("<li>")
                 .append(`
                     <div class='autocomplete-item'>
-                        <img src='${item.image || "/images/placeholder.jpg"}' 
+                        <img src='${baseURL + item.image || "/images/placeholder.jpg"}' 
                              alt='${escapeHtml(item.label)}'
                              onerror="this.src='/images/placeholder.jpg'; this.onerror=null;"
                              class="search-result-image">
@@ -302,7 +303,7 @@ $(document).ready(function() {
                     <div class="product-card" data-id="${product.item_id}">
                         ${product.stock_qty <= 0 ? '<div class="product-badge">Out of Stock</div>' : ''}
                         <div class="product-image">
-                            <img src="${product.item_img}" 
+                            <img src="${baseURL + product.item_img}" 
                                  alt="${escapeHtml(product.item_name)}"
                                  onerror="this.src='/images/placeholder.jpg'; this.onerror=null;">
                         </div>
@@ -329,7 +330,7 @@ $(document).ready(function() {
                     <div class="product-card" data-id="${product.item_id}">
                         ${product.stock_qty <= 0 ? '<div class="product-badge">Out of Stock</div>' : ''}
                         <div class="product-image">
-                            <img src="${product.item_img}" 
+                            <img src="${baseURL + product.item_img}" 
                                  alt="${escapeHtml(product.item_name)}"
                                  onerror="this.src='/images/placeholder.jpg'; this.onerror=null;">
                         </div>
@@ -872,7 +873,7 @@ $(document).ready(function() {
             <div class="product-detail-container">
                 <div class="product-gallery">
                     <div class="main-image-container">
-                        <img src="${mainImage}" 
+                        <img src="${baseURL + mainImage}" 
                              alt="${escapeHtml(product.item_name)}" 
                              class="main-image" 
                              id="mainImage">
@@ -880,7 +881,7 @@ $(document).ready(function() {
                     ${allImages.length > 1 ? `
                         <div class="thumbnail-container">
                             ${allImages.map((img, index) => `
-                                <img src="${img}" 
+                                <img src="${baseURL + img}" 
                                      alt="View ${index + 1}" 
                                      class="thumbnail ${index === 0 ? 'active' : ''}" 
                                      data-img="${img}">

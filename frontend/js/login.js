@@ -89,8 +89,9 @@ $('#toggleSigninPassword').on('click', function () {
           timer: 2000,
           showConfirmButton: false
         });
-
-        sessionStorage.setItem('authToken', response.token);
+        
+        sessionStorage.setItem('userId', response.user.user_id);
+        sessionStorage.setItem('authToken', response.user.token);
         sessionStorage.setItem('role', response.user.role);
         sessionStorage.setItem('name', response.user.name);
         sessionStorage.setItem('initial', response.user.name.trim().charAt(0).toUpperCase());
